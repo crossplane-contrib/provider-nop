@@ -24,11 +24,13 @@ The provider will have a single managed resource `NopResource` that will reflect
 - be ready after this period
 - be unhealthy after this period
 
-The idea is to have an array of fields which will let you declare condition type and status of the resource at each time interval. 
+The idea is to have an array of fields which will let you declare condition type and status of the resource at each time interval. The `NopResource` will wait for the time provided in the spec before allowing the resource to be ready/unhealthy (or as specified in the Spec). This could be achieved by adding the logic to the controllers. 
 
 This will be implemented by making use of three fields:
 - `conditionType` and `conditionStatus` for declaring condtion of resource
 - `timeAfter` for declaring the time elapsed after the creation of resource at which we need to set the specified condition.
+
+`ObservableField` will be an arbitrary field in Status that can be useful in crossplane testing scenarios. For example, while testing bidirectional patching back to the composite resource from one resource to another which can be supported by this field. 
 
 The resource structure might look something like: 
 ```go
@@ -55,14 +57,13 @@ Currently, there is no requirement for having `ProviderConfig` since we don't ha
 We would just create an external client with no service parameter passed. 
 
 #### Observe
-This is where the main logic will reside that would compare the time elapsed with the time interval passed in the spec. As the time elapsed becomes equal to the time passed it will change the condition of resource accordingly. 
+This is where the main logic will reside that would compare the time elapsed with the time interval passed in the spec. The logic will determine if the status conditions match what the spec says they should be. If they do not match (i.e. we need to update the status conditions), it will return `ResourceUpToDate: false`, indicating that Update should be called to perform the update.
 
 #### Update
-Currently there is no plan to update the NopResource so this function will just set condition to crossplane-runtime `Available`. 
+Whenever the update function is called it will match the time elapsed from creation with the `timeAfter` fields of spec and status/condition will be changed accordingly.
 
 #### Delete
 This will set the condition of NopResource to crossplane-runtime `Deleting`. 
-
 
 The config might look something like:
 
@@ -81,11 +82,17 @@ spec:
         conditionStatus: "False"
         timeAfter: "10s"
 ```
-`ObservableField` is an arbitrary field in `NopResourceObservation` type can be useful in crossplane testing scenarios. For example, while testing bidirectional patching back to the composite resource from one resource to another which can be supported by this field. 
-
-The idea here is just to wait for the time provided in the spec before allowing the resource to be ready/unhealthy. This could be achieved by adding the logic to the controllers. 
 
 ## Future Plans
-- We might want to include `ProviderConfig` at some point for those resources which are not managed. 
-- Array type in nop resource observation type like `ObservableArrays []string` can also be useful in patching.
-- A `patchReceiverField` can added as an optional field in `NopResource` parameters that just gets patched value from `coolField` of XRD 
+- Array type `ObservableArrays []string` field can be added in both Spec and Status because there are some edge cases regarding how arrays are patched with Composition. For example, when we patch an array, there are many ways possible:
+    - To replace the whole array
+    - To add the array
+    - To specify key fields and only replace them
+
+  It might be helpful to have these fields in Spec and Status in future implementations.
+
+- A `patchReceiverField` can added as an optional field in Spec would be a receiver field to test that patches make it into the nop object when it's part of a composition. For example, following is a possible test scenario:
+  1. nop object spec has a field called `patchReceiverField` of type string.
+  2. XRD has a field called `coolField` of type string.
+  3. The composition under the XRD creates 1 nop object and patches the value from `coolField` onto this receiver field on the nop object.
+  4. Test case verifies that the value of `coolField` made it successfully into the nop object's receiver field.
