@@ -59,7 +59,6 @@ type NopResourceStatus struct {
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// Please replace `PROVIDER-NAME` with your actual provider name, like `aws`, `azure`, `gcp`, `alibaba`
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,nop}
 type NopResource struct {
 	metav1.TypeMeta   `json:",inline"`

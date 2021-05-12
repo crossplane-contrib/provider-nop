@@ -18,7 +18,6 @@ package nopresource
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -80,8 +79,6 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.New(errNotNopResource)
 	}
 
-	// fmt.Printf(string(cr.GetCondition(xpv1.TypeReady).Status) + "\n\n")
-
 	return &external{}, nil
 }
 
@@ -108,7 +105,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	ci := reconcileLogic(cr.Spec.ForProvider.ConditionAfter, time.Since(startTime.Time))
 
 	for _, l := range ci {
-		// fmt.Printf("Calling update on index %d\n", l)
 
 		x := xpv1.Condition{
 			Type:               xpv1.ConditionType(cr.Spec.ForProvider.ConditionAfter[l].ConditionType),
@@ -119,17 +115,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 		cr.Status.SetConditions(x)
 	}
-
-	// x := cr.Status.Conditions
-	// fmt.Printf("\n\n	My values	\n\n")
-	// fmt.Printf("%v", ci)
-	// fmt.Printf(time.Since(startTime.Time).String() + "\n\n")
-	// for _, e := range x {
-	// 	fmt.Printf("%s %s %s %s", string(e.Reason), string(e.Message), string(e.Status), string(e.Type))
-	// 	fmt.Print("\n\n")
-	// }
-	// These fmt statements should be removed in the real implementation.
-	// fmt.Printf("Observing: %+v", cr)
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -149,12 +134,10 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.NopResource)
+	_, ok := mg.(*v1alpha1.NopResource)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotNopResource)
 	}
-
-	fmt.Printf("Creating: %+v", cr)
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -164,12 +147,10 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.NopResource)
+	_, ok := mg.(*v1alpha1.NopResource)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNopResource)
 	}
-
-	fmt.Printf("Updating: %+v", cr)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -183,8 +164,6 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	if !ok {
 		return errors.New(errNotNopResource)
 	}
-
-	fmt.Printf("Deleting: %+v", cr)
 
 	cr.Status.SetConditions(xpv1.Deleting())
 
