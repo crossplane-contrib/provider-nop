@@ -17,18 +17,13 @@ limitations under the License.
 package nopresource
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
-
-	"github.com/crossplane/provider-nop/apis/sample/v1alpha1"
+	"github.com/crossplane/provider-nop/apis/v1alpha1"
 )
 
 // Unlike many Kubernetes projects Crossplane does not use third party testing
@@ -38,44 +33,6 @@ import (
 //
 // https://github.com/golang/go/wiki/TestComments
 // https://github.com/crossplane/crossplane/blob/master/CONTRIBUTING.md#contributing-code
-
-func TestObserve(t *testing.T) {
-	type fields struct {
-		service interface{}
-	}
-
-	type args struct {
-		ctx context.Context
-		mg  resource.Managed
-	}
-
-	type want struct {
-		o   managed.ExternalObservation
-		err error
-	}
-
-	cases := map[string]struct {
-		reason string
-		fields fields
-		args   args
-		want   want
-	}{
-		// TODO: Add test cases.
-	}
-
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			e := external{service: tc.fields.service}
-			got, err := e.Observe(tc.args.ctx, tc.args.mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ne.Observe(...): -want error, +got error:\n%s\n", tc.reason, diff)
-			}
-			if diff := cmp.Diff(tc.want.o, got); diff != "" {
-				t.Errorf("\n%s\ne.Observe(...): -want, +got:\n%s\n", tc.reason, diff)
-			}
-		})
-	}
-}
 
 func TestReconcileLogic(t *testing.T) {
 

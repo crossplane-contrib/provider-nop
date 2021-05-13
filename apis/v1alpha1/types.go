@@ -37,7 +37,6 @@ type NopResourceParameters struct {
 // NopResourceObservation are the observable fields of a NopResource.
 type NopResourceObservation struct {
 	ObservableField string `json:"observableField,omitempty"`
-	// ObservableArrays []string
 }
 
 // A NopResourceSpec defines the desired state of a NopResource.

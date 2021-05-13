@@ -1,4 +1,4 @@
-apiVersion: sample.nop.crossplane.io/v1alpha1
+apiVersion: nop.crossplane.io/v1alpha1
 kind: NopResource
 metadata:
   name: example

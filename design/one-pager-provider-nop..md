@@ -102,7 +102,7 @@ This will set the condition of NopResource to crossplane-runtime `Deleting`.
 The config might look something like:
 
 ```yaml 
-apiVersion: sample.template.crossplane.io/v1alpha1
+apiVersion: nop.crossplane.io/v1alpha1
 kind: NopResource
 metadata:
   name: example

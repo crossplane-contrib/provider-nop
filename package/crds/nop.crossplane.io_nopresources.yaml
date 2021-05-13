@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: nopresources.sample.nop.crossplane.io
+  name: nopresources.nop.crossplane.io
 spec:
-  group: sample.nop.crossplane.io
+  group: nop.crossplane.io
   names:
     categories:
     - crossplane

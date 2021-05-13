@@ -21,153 +21,34 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/event"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
-
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/provider-nop/apis/sample/v1alpha1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	errNotNopResource = "managed resource is not a NopResource custom resource"
+	"github.com/crossplane/provider-nop/apis/v1alpha1"
 )
 
 // Setup adds a controller that reconciles NopResource managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 	name := managed.ControllerName(v1alpha1.NopResourceGroupKind)
 
-	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.NopResourceGroupVersionKind),
-		managed.WithExternalConnecter(&connector{
-			kube: mgr.GetClient(),
-		}),
-		managed.WithInitializers(managed.NewNameAsExternalName(mgr.GetClient())),
-		managed.WithPollInterval(1*time.Second),
-		managed.WithLogger(l.WithValues("controller", name)),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
+	r := NewReconciler(mgr)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		For(&v1alpha1.NopResource{}).
 		Complete(r)
-}
-
-// A connector is expected to produce an ExternalClient when its Connect method
-// is called.
-type connector struct {
-	kube client.Client
-}
-
-// Connect typically produces an ExternalClient by:
-// 1. Tracking that the managed resource is using a ProviderConfig.
-// 2. Getting the managed resource's ProviderConfig.
-// 3. Getting the credentials specified by the ProviderConfig.
-// 4. Using the credentials to form a client.
-func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	_, ok := mg.(*v1alpha1.NopResource)
-	if !ok {
-		return nil, errors.New(errNotNopResource)
-	}
-
-	return &external{}, nil
-}
-
-// An ExternalClient observes, then either creates, updates, or deletes an
-// external resource to ensure it reflects the managed resource's desired state.
-type external struct {
-	// A 'client' used to connect to the external resource API. In practice this
-	// would be something like an AWS SDK client.
-	service interface{}
-}
-
-func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.NopResource)
-	if !ok {
-		return managed.ExternalObservation{}, errors.New(errNotNopResource)
-	}
-	startTime := cr.CreationTimestamp
-
-	// If object was deleted, return it does not exist so that managed reconciler removes finalizer
-	if meta.WasDeleted(mg) {
-		return managed.ExternalObservation{ResourceExists: false}, nil
-	}
-
-	ci := reconcileLogic(cr.Spec.ForProvider.ConditionAfter, time.Since(startTime.Time))
-
-	for _, l := range ci {
-
-		x := xpv1.Condition{
-			Type:               xpv1.ConditionType(cr.Spec.ForProvider.ConditionAfter[l].ConditionType),
-			Status:             v1.ConditionStatus(cr.Spec.ForProvider.ConditionAfter[l].ConditionStatus),
-			LastTransitionTime: metav1.Now(),
-			Reason:             xpv1.ReasonAvailable,
-		}
-
-		cr.Status.SetConditions(x)
-	}
-
-	return managed.ExternalObservation{
-		// Return false when the external resource does not exist. This lets
-		// the managed resource reconciler know that it needs to call Create to
-		// (re)create the resource, or that it has successfully been deleted.
-		ResourceExists: true,
-
-		// Return false when the external resource exists, but it not up to date
-		// with the desired managed resource state. This lets the managed
-		// resource reconciler know that it needs to call Update.
-		ResourceUpToDate: true,
-
-		// Return any details that may be required to connect to the external
-		// resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
-}
-
-func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	_, ok := mg.(*v1alpha1.NopResource)
-	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotNopResource)
-	}
-
-	return managed.ExternalCreation{
-		// Optionally return any details that may be required to connect to the
-		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
-}
-
-func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	_, ok := mg.(*v1alpha1.NopResource)
-	if !ok {
-		return managed.ExternalUpdate{}, errors.New(errNotNopResource)
-	}
-
-	return managed.ExternalUpdate{
-		// Optionally return any details that may be required to connect to the
-		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
-}
-
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
-	cr, ok := mg.(*v1alpha1.NopResource)
-	if !ok {
-		return errors.New(errNotNopResource)
-	}
-
-	cr.Status.SetConditions(xpv1.Deleting())
-
-	return nil
 }
 
 // reconcileLogic returns a slice of indices from conditionAfter which states
@@ -196,4 +77,81 @@ func reconcileLogic(conditionAfter []v1alpha1.ResourceConditionAfter, timeElapse
 	}
 
 	return idx
+}
+
+// A Reconciler reconciles managed resources by creating and managing the
+// lifecycle of an external resource, i.e. a resource in an external system such
+// as a cloud provider API. Each controller must watch the managed resource kind
+// for which it is responsible.
+type Reconciler struct {
+	client client.Client
+
+	pollInterval time.Duration
+	timeout      time.Duration
+
+	log    logging.Logger
+	record event.Recorder
+}
+
+const (
+	reconcileGracePeriod = 30 * time.Second
+	reconcileTimeout     = 1 * time.Minute
+	defaultpollInterval  = 1 * time.Second
+)
+
+func NewReconciler(m manager.Manager) *Reconciler {
+
+	r := &Reconciler{
+		client:       m.GetClient(),
+		pollInterval: defaultpollInterval,
+		timeout:      reconcileTimeout,
+		log:          logging.NewNopLogger(),
+		record:       event.NewNopRecorder(),
+	}
+
+	return r
+}
+
+const (
+	errGetManaged          = "cannot get managed resource"
+	errUpdateManagedStatus = "cannot update managed resource status"
+)
+
+// Reconcile a managed resource with an external resource.
+func (r *Reconciler) Reconcile(_ context.Context, req reconcile.Request) (reconcile.Result, error) {
+
+	log := r.log.WithValues("request", req)
+	log.Debug("Reconciling")
+
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout+reconcileGracePeriod)
+	defer cancel()
+
+	managed := &v1alpha1.NopResource{}
+
+	if err := r.client.Get(ctx, req.NamespacedName, managed); err != nil {
+		// There's no need to requeue if we no longer exist. Otherwise we'll be
+		// requeued implicitly because we return an error.
+		log.Debug("Cannot get managed resource", "error", err)
+		return reconcile.Result{}, errors.Wrap(resource.IgnoreNotFound(err), errGetManaged)
+	}
+
+	startTime := managed.CreationTimestamp
+
+	ci := reconcileLogic(managed.Spec.ForProvider.ConditionAfter, time.Since(startTime.Time))
+
+	for _, l := range ci {
+
+		x := xpv1.Condition{
+			Type:               xpv1.ConditionType(managed.Spec.ForProvider.ConditionAfter[l].ConditionType),
+			Status:             v1.ConditionStatus(managed.Spec.ForProvider.ConditionAfter[l].ConditionStatus),
+			LastTransitionTime: metav1.Now(),
+			Reason:             xpv1.ReasonAvailable,
+		}
+
+		managed.Status.SetConditions(x)
+	}
+
+	log.Debug("Successfully requested update of external resource", "requeue-after", time.Now().Add(r.pollInterval))
+
+	return reconcile.Result{RequeueAfter: r.pollInterval}, errors.Wrap(r.client.Status().Update(ctx, managed), errUpdateManagedStatus)
 }
