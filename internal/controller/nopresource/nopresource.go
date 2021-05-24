@@ -36,7 +36,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/crossplane/provider-nop/apis/v1alpha1"
+	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
 // Setup adds a controller that reconciles NopResource managed resources.
