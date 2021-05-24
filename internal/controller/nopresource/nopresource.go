@@ -36,7 +36,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/crossplane/provider-nop/apis/v1alpha1"
+	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
 // Setup adds a controller that reconciles NopResource managed resources.
@@ -71,7 +71,7 @@ func reconcileLogic(conditionAfter []v1alpha1.ResourceConditionAfter, timeElapse
 		}
 	}
 
-	var idx []int
+	idx := make([]int, len(latestIdx))
 	for _, l := range latestIdx {
 		idx = append(idx, l)
 	}
@@ -99,6 +99,7 @@ const (
 	defaultpollInterval  = 1 * time.Second
 )
 
+// NewReconciler builds a reconciler for managing NopResource.
 func NewReconciler(m manager.Manager) *Reconciler {
 
 	r := &Reconciler{

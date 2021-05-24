@@ -1,4 +1,4 @@
-module github.com/crossplane/provider-nop
+module github.com/crossplane-contrib/provider-nop
 
 go 1.13
 

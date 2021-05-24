@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"github.com/crossplane/provider-nop/apis/v1alpha1"
+	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
 // Unlike many Kubernetes projects Crossplane does not use third party testing

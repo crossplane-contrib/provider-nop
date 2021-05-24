@@ -22,7 +22,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
-	"github.com/crossplane/provider-nop/internal/controller/nopresource"
+	"github.com/crossplane-contrib/provider-nop/internal/controller/nopresource"
 )
 
 // Setup creates all nop controllers with the supplied logger and adds them to
