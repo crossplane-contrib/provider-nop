@@ -71,7 +71,7 @@ func reconcileLogic(conditionAfter []v1alpha1.ResourceConditionAfter, timeElapse
 		}
 	}
 
-	var idx []int
+	idx := make([]int, len(latestIdx))
 	for _, l := range latestIdx {
 		idx = append(idx, l)
 	}
@@ -99,6 +99,7 @@ const (
 	defaultpollInterval  = 1 * time.Second
 )
 
+// NewReconciler builds a reconciler for managing NopResource.
 func NewReconciler(m manager.Manager) *Reconciler {
 
 	r := &Reconciler{
