@@ -55,7 +55,7 @@ func TestReconcileLogic(t *testing.T) {
 			reason:            "Empty slice should be returned in case no conditions specified till given time elapsed.",
 			resourcecondition: c,
 			elapsedtime:       1*time.Second + 999*time.Millisecond,
-			want:              nil,
+			want:              []int{},
 		},
 		"SingleTypeReconcile": {
 			reason:            "Slice with a single element should be returned when a single condition type has been specified.",

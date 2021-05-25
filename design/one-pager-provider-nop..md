@@ -80,24 +80,13 @@ should be decreased to a small value like `1s` or less using
 `WithPollInterval`in the Setup function. This will allow controller to set
 various conditions.
 
-#### Connect 
-Currently, there is no requirement for having `ProviderConfig`
-since we don't have any external API client that we might want to connect. We
-would just create an external client with no service parameter passed. 
-
-#### Observe 
+#### Reconciler
+We define a new custom reconciler for managing the NopResource.
 This is where the main logic will reside that would compare the time elapsed
 with the time intervals passed in the Spec. The logic will find the latest
 condition status specified for each condition type till the elapsed time. It
 will then set the specified condition status for each type for the resource
 at each reconcile.
-
-#### Update 
-The update function won't be called since the all the logic resides
-in `Observe` function for now.
-
-#### Delete 
-This will set the condition of NopResource to crossplane-runtime `Deleting`. 
 
 The config might look something like:
 
