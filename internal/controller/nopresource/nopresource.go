@@ -71,12 +71,12 @@ func reconcileLogic(conditionAfter []v1alpha1.ResourceConditionAfter, timeElapse
 		}
 	}
 
-	idx := make([]int, len(latestIdx))
+	idxs := make([]int, 0, len(latestIdx))
 	for _, l := range latestIdx {
-		idx = append(idx, l)
+		idxs = append(idxs, l)
 	}
 
-	return idx
+	return idxs
 }
 
 // A Reconciler reconciles managed resources by creating and managing the
