@@ -62,7 +62,6 @@ type NopResourceParameters struct {
 
 	// Fields is an arbitrary object you can patch to and from. It has no
 	// schema, is not validated, and is not used by the NopResource controller.
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	Fields runtime.RawExtension `json:"fields,omitempty"`
 }
@@ -71,7 +70,6 @@ type NopResourceParameters struct {
 type NopResourceObservation struct {
 	// Fields is an arbitrary object you can patch to and from. It has no
 	// schema, is not validated, and is not used by the NopResource controller.
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	Fields runtime.RawExtension `json:"fields,omitempty"`
 }

@@ -109,6 +109,8 @@ spec:
                     description: Fields is an arbitrary object you can patch to and
                       from. It has no schema, is not validated, and is not used by
                       the NopResource controller.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               providerConfigRef:
                 default:
@@ -292,6 +294,8 @@ spec:
                     description: Fields is an arbitrary object you can patch to and
                       from. It has no schema, is not validated, and is not used by
                       the NopResource controller.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               conditions:
                 description: Conditions of the resource.
