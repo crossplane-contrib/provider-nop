@@ -15,7 +15,9 @@ spec:
       arrayField:
       - stringField: "cool"
     # This NopResource will set its 'Ready' status condition to 'True'
-    # after 10 seconds.
+    # after 30 seconds, etc. Note that these conditions will only be processed
+    # as frequently as the provider's --poll-interval, which defaults to 10s.
+    # This means that by default granularity of less than 10s is ignored.
     conditionAfter:
     - time: 30s
       conditionType: Ready

@@ -19,6 +19,7 @@ package nopresource
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -76,34 +77,35 @@ func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservatio
 		return managed.ExternalObservation{}, errors.Errorf("managed resource was not a %T", &v1alpha1.NopResource{})
 	}
 
-	pending := map[xpv1.ConditionType]int{}
-	for i, ca := range nop.Spec.ForProvider.ConditionAfter {
-		if time.Since(nop.ObjectMeta.CreationTimestamp.Time) < ca.Time.Duration {
+	// Sort conditions, with those that should occur latest appearing first.
+	// We rely on the fact that the managed.Reconciler won't persist this sorted
+	// array because it occurred during the Observe function, and we didn't
+	// return ResourceLateInitialized: true.
+	sort.SliceStable(nop.Spec.ForProvider.ConditionAfter, func(i, j int) bool {
+		return nop.Spec.ForProvider.ConditionAfter[i].Time.Duration > nop.Spec.ForProvider.ConditionAfter[j].Time.Duration
+	})
+
+	age := time.Since(nop.ObjectMeta.CreationTimestamp.Time)
+	set := map[xpv1.ConditionType]bool{}
+	for _, ca := range nop.Spec.ForProvider.ConditionAfter {
+		if ca.Time.Duration > age {
 			// This condition should not occur yet.
 			continue
 		}
 
-		// No condition of this type is pending, so it should be.
-		idx, ok := pending[ca.ConditionType]
-		if !ok {
-			pending[ca.ConditionType] = i
+		if set[ca.ConditionType] {
+			// We already encountered and set a condition of this type.
 			continue
 		}
 
-		// This condition should occur after the pending condition of
-		// the same type, so replace it as the pending condition.
-		if nop.Spec.ForProvider.ConditionAfter[idx].Time.Duration < ca.Time.Duration {
-			pending[ca.ConditionType] = i
-		}
-	}
-
-	// Set our pending conditions.
-	for _, idx := range pending {
+		// This is the latest condition of this type that should be set.
 		nop.SetConditions(xpv1.Condition{
-			Type:               nop.Spec.ForProvider.ConditionAfter[idx].ConditionType,
-			Status:             nop.Spec.ForProvider.ConditionAfter[idx].ConditionStatus,
+			Type:               ca.ConditionType,
+			Status:             ca.ConditionStatus,
 			LastTransitionTime: metav1.Now(),
 		})
+
+		set[ca.ConditionType] = true
 	}
 
 	// Emit any connection details we were asked to.
