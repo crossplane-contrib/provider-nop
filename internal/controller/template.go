@@ -29,7 +29,6 @@ import (
 // the supplied manager.
 func Setup(mgr ctrl.Manager, l logging.Logger, wl workqueue.RateLimiter) error {
 	for _, setup := range []func(ctrl.Manager, logging.Logger, workqueue.RateLimiter) error{
-		// config.Setup,
 		nopresource.Setup,
 	} {
 		if err := setup(mgr, l, wl); err != nil {

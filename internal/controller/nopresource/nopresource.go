@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package nopresource is a controller for a managed resource that does nothing.
 package nopresource
 
 import (
@@ -24,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -39,8 +39,10 @@ import (
 	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
+// TODO(negz): Plumb up this logger and rate-limiter?
+
 // Setup adds a controller that reconciles NopResource managed resources.
-func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
+func Setup(mgr ctrl.Manager, _ logging.Logger, _ workqueue.RateLimiter) error {
 	name := managed.ControllerName(v1alpha1.NopResourceGroupKind)
 
 	r := NewReconciler(mgr)
@@ -96,7 +98,7 @@ type Reconciler struct {
 const (
 	reconcileGracePeriod = 30 * time.Second
 	reconcileTimeout     = 1 * time.Minute
-	defaultpollInterval  = 1 * time.Second
+	defaultPollInterval  = 1 * time.Second
 )
 
 // NewReconciler builds a reconciler for managing NopResource.
@@ -104,7 +106,7 @@ func NewReconciler(m manager.Manager) *Reconciler {
 
 	r := &Reconciler{
 		client:       m.GetClient(),
-		pollInterval: defaultpollInterval,
+		pollInterval: defaultPollInterval,
 		timeout:      reconcileTimeout,
 		log:          logging.NewNopLogger(),
 		record:       event.NewNopRecorder(),
@@ -119,12 +121,12 @@ const (
 )
 
 // Reconcile a managed resource with an external resource.
-func (r *Reconciler) Reconcile(_ context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 
 	log := r.log.WithValues("request", req)
 	log.Debug("Reconciling")
 
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout+reconcileGracePeriod)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout+reconcileGracePeriod)
 	defer cancel()
 
 	managed := &v1alpha1.NopResource{}
