@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -24,9 +25,9 @@ import (
 
 // ResourceConditionAfter is a configurable field of NopResource.
 type ResourceConditionAfter struct {
-	Time            string `json:"time"`
-	ConditionType   string `json:"conditionType"`
-	ConditionStatus string `json:"conditionStatus"`
+	Time            metav1.Duration        `json:"time"`
+	ConditionType   xpv1.ConditionType     `json:"conditionType"`
+	ConditionStatus corev1.ConditionStatus `json:"conditionStatus"`
 }
 
 // NopResourceParameters are the configurable fields of a NopResource.

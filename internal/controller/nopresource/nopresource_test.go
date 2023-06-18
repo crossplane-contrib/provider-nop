@@ -17,11 +17,17 @@ limitations under the License.
 package nopresource
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
@@ -37,60 +43,180 @@ import (
 func TestReconcileLogic(t *testing.T) {
 
 	c := []v1alpha1.ResourceConditionAfter{
-		{Time: "10s", ConditionType: "Ready", ConditionStatus: "False"},
-		{Time: "5s", ConditionType: "Ready", ConditionStatus: "False"},
-		{Time: "7s", ConditionType: "Ready", ConditionStatus: "True"},
-		{Time: "5s", ConditionType: "Synced", ConditionStatus: "False"},
-		{Time: "10s", ConditionType: "Synced", ConditionStatus: "True"},
-		{Time: "2s", ConditionType: "Ready", ConditionStatus: "False"},
+		{Time: metav1.Duration{Duration: 10 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
+		{Time: metav1.Duration{Duration: 5 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
+		{Time: metav1.Duration{Duration: 7 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionTrue},
+		{Time: metav1.Duration{Duration: 5 * time.Second}, ConditionType: xpv1.TypeSynced, ConditionStatus: corev1.ConditionFalse},
+		{Time: metav1.Duration{Duration: 10 * time.Second}, ConditionType: xpv1.TypeSynced, ConditionStatus: corev1.ConditionTrue},
+		{Time: metav1.Duration{Duration: 2 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
 	}
 
+	now := time.Now()
+
 	cases := map[string]struct {
-		reason            string
-		resourcecondition []v1alpha1.ResourceConditionAfter
-		elapsedtime       time.Duration
-		want              []int
+		reason string
+		mg     resource.Managed
+		want   resource.Managed
 	}{
-		"EmptyReconcileArray": {
-			reason:            "Empty slice should be returned in case no conditions specified till given time elapsed.",
-			resourcecondition: c,
-			elapsedtime:       1*time.Second + 999*time.Millisecond,
-			want:              []int{},
+		"NoDesiredConditionsYet": {
+			reason: "No conditions should be set if not enough time has passed for any desired conditions to be applied.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					// Almost, but not quite two seconds. The earliest condition
+					// should be set at two seconds.
+					CreationTimestamp: metav1.NewTime(now.Add(-1999 * time.Millisecond)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+			},
+			want: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.NewTime(now.Add(-1999 * time.Millisecond)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+			},
 		},
-		"SingleTypeReconcile": {
-			reason:            "Slice with a single element should be returned when a single condition type has been specified.",
-			resourcecondition: c,
-			elapsedtime:       2 * time.Second,
-			want:              []int{5},
+		"ReadyForOneDesiredCondition": {
+			reason: "Only one condition should be set if enough time has passed for only one desired condition.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					// The earliest condition (5) should be set at two seconds.
+					CreationTimestamp: metav1.NewTime(now.Add(-2 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+			},
+			want: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.NewTime(now.Add(-2 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+				Status: v1alpha1.NopResourceStatus{
+					ResourceStatus: xpv1.ResourceStatus{
+						ConditionedStatus: xpv1.ConditionedStatus{
+							Conditions: []xpv1.Condition{
+								{
+									Type:               c[5].ConditionType,
+									Status:             c[5].ConditionStatus,
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
-		"IndexChangeReconcile": {
-			reason:            "Even if condition specified is same at later time, index for the later time should be returned.",
-			resourcecondition: c,
-			elapsedtime:       5 * time.Second,
-			want:              []int{1, 3},
-		},
-		"NormalReconcileBehaviour": {
-			reason:            "Indexes with latest status of each condition type should be returned till given time elapsed.",
-			resourcecondition: c,
-			elapsedtime:       8 * time.Second,
-			want:              []int{2, 3},
+		"OnlyLatestConditionsAreSet": {
+			reason: "When there are many conditions of the same time, only the latest eligible conditions should be set.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					// After 8 seconds conditions 2 (Ready=True) and 3
+					// (Synced=False) should be set. Condition 2 supercedes
+					// conditions 1 and 5 (both Ready=False), which happen
+					// earlier.
+					CreationTimestamp: metav1.NewTime(now.Add(-8 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+			},
+			want: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.NewTime(now.Add(-8 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+				Status: v1alpha1.NopResourceStatus{
+					ResourceStatus: xpv1.ResourceStatus{
+						ConditionedStatus: xpv1.ConditionedStatus{
+							Conditions: []xpv1.Condition{
+								{
+									Type:               c[2].ConditionType,
+									Status:             c[2].ConditionStatus,
+									LastTransitionTime: metav1.Now(),
+								},
+								{
+									Type:               c[3].ConditionType,
+									Status:             c[3].ConditionStatus,
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		"LongTimeReconcileBehaviour": {
-			reason:            "Indexes with last set status of each condition type should be returned till given time elapsed.",
-			resourcecondition: c,
-			elapsedtime:       50 * time.Second,
-			want:              []int{0, 4},
+			reason: "Indexes with last set status of each condition type should be returned till given time elapsed.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					// After 8 seconds conditions 2 (Ready=True) and 3
+					// (Synced=False) should be set. Condition 2 supercedes
+					// conditions 1 and 5 (both Ready=False), which happen
+					// earlier.
+					CreationTimestamp: metav1.NewTime(now.Add(-50 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+			},
+			want: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.NewTime(now.Add(-50 * time.Second)),
+				},
+				Spec: v1alpha1.NopResourceSpec{
+					ForProvider: v1alpha1.NopResourceParameters{
+						ConditionAfter: c,
+					},
+				},
+				Status: v1alpha1.NopResourceStatus{
+					ResourceStatus: xpv1.ResourceStatus{
+						ConditionedStatus: xpv1.ConditionedStatus{
+							Conditions: []xpv1.Condition{
+								{
+									Type:               c[0].ConditionType,
+									Status:             c[0].ConditionStatus,
+									LastTransitionTime: metav1.Now(),
+								},
+								{
+									Type:               c[4].ConditionType,
+									Status:             c[4].ConditionStatus,
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			got := reconcileLogic(tc.resourcecondition, tc.elapsedtime)
-
-			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(i, j int) bool {
-				return i > j
-			})); diff != "" {
-				t.Errorf("\n%s\nReconcileLogic(...): -want, +got:\n%s", tc.reason, diff)
+			_, _ = Observe(context.Background(), tc.mg)
+			if diff := cmp.Diff(tc.want, tc.mg, test.EquateConditions()); diff != "" {
+				t.Errorf("Observe(...): -want, +got:\n%s\n%s\n", tc.reason, diff)
 			}
 		})
 	}
