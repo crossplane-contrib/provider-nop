@@ -17,8 +17,17 @@ spec:
     # This NopResource will set its 'Ready' status condition to 'True'
     # after 10 seconds.
     conditionAfter:
-    - time: 10s
+    - time: 30s
       conditionType: Ready
+      conditionStatus: "True"
+    - time: 60s
+      conditionType: Ready
+      conditionStatus: "False"
+    - time: 90s
+      conditionType: Ready
+      conditionStatus: "True"
+    - time: 90s
+      conditionType: Green
       conditionStatus: "True"
     # The NopResource will emit whatever connection details it is told
     # to have. These are all plaintext - for testing only.

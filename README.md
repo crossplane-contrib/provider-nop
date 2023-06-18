@@ -45,10 +45,21 @@ spec:
               arrayField:
               - stringField: "cool"
             # This NopResource will set its 'Ready' status condition to 'True'
-            # after 10 seconds.
+            # after 30 seconds, etc. Note that these conditions will only be processed
+            # as frequently as the provider's --poll-interval, which defaults to 10s.
+            # This means that by default granularity of less than 10s is ignored.
             conditionAfter:
-            - time: 10s
+            - time: 30s
               conditionType: Ready
+              conditionStatus: "True"
+            - time: 60s
+              conditionType: Ready
+              conditionStatus: "False"
+            - time: 90s
+              conditionType: Ready
+              conditionStatus: "True"
+            - time: 90s
+              conditionType: Green
               conditionStatus: "True"
             # The NopResource will emit whatever connection details it is told
             # to have. These are all plaintext - for testing only.
