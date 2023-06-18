@@ -41,7 +41,7 @@ type ResourceConditionAfter struct {
 // emit.
 type ResourceConnectionDetail struct {
 	// Name of the connection detail.
-	Name string `json:"key"`
+	Name string `json:"name"`
 
 	// Value of the connection detail.
 	Value string `json:"value"`

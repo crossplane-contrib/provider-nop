@@ -94,14 +94,14 @@ spec:
                       description: ResourceConnectionDetail specifies a connection
                         detail a NopResource should emit.
                       properties:
-                        key:
+                        name:
                           description: Name of the connection detail.
                           type: string
                         value:
                           description: Value of the connection detail.
                           type: string
                       required:
-                      - key
+                      - name
                       - value
                       type: object
                     type: array
