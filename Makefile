@@ -29,8 +29,8 @@ NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
-GO_LDFLAGS += -X $(GO_PROJECT)/pkg/version.Version=$(VERSION)
-GO_SUBDIRS += cmd pkg apis
+GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
+GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
 -include build/makelib/golang.mk
 
@@ -75,16 +75,6 @@ crds.clean:
 
 generate: crds.clean
 
-# Ensure a PR is ready for review.
-reviewable: generate lint
-	@go mod tidy
-
-# Ensure branch is clean.
-check-diff: reviewable
-	@$(INFO) checking that branch is clean
-	@test -z "$$(git status --porcelain)" || $(FAIL)
-	@$(OK) branch is clean
-
 # integration tests
 e2e.run: test-integration
 
@@ -111,10 +101,7 @@ dev: generate
 	kubectl apply -f package/crds/ -R
 	go run cmd/provider/main.go -d
 
-manifests:
-	@$(INFO) Deprecated. Run make generate instead.
-
-.PHONY: cobertura reviewable submodules fallthrough test-integration run crds.clean manifests
+.PHONY: cobertura reviewable submodules fallthrough test-integration run crds.clean
 
 # ====================================================================================
 # Special Targets
