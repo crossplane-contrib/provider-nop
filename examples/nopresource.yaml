@@ -4,16 +4,37 @@ metadata:
   name: example
 spec:
   forProvider:
+    # The NopResource spec.forProvider.fields is an arbitrary,
+    # schemaless object. Use it to patch to and from.
+    # status.atProvider.fields works the same.
+    fields:
+      integerField: 42
+      stringField: "cool"
+      objectField:
+        stringField: "cool"
+      arrayField:
+      - stringField: "cool"
+    # This NopResource will set its 'Ready' status condition to 'True'
+    # after 10 seconds.
     conditionAfter:
-      - conditionType: "Ready"
-        conditionStatus: "False"
-        time: "5s"
-      - conditionType: "Ready"
-        conditionStatus: "True"
-        time: "10s"
-      - conditionType: "Synced"
-        conditionStatus: "False"
-        time: "15s"
-      - conditionType: "Synced"
-        conditionStatus: "True"
-        time: "20s"
+    - time: 10s
+      conditionType: Ready
+      conditionStatus: "True"
+    # The NopResource will emit whatever connection details it is told
+    # to have. These are all plaintext - for testing only.
+    connectionDetails:
+    - name: username
+      value: fakeuser
+    - name: password
+      value: verysecurepassword
+    - name: endpoint
+      value: 127.0.0.1
+  # Like all managed resources the NopResource allows you to configure a
+  # provider config. It ignores the configured value.
+  providerConfigRef:
+    name: default
+  # Simulating connection details (see connectionDetails above) works
+  # only when the NopResource writes a connection secret.
+  writeConnectionSecretToRef:
+    namespace: crossplane-system
+    name: nop-example-resource
