@@ -63,17 +63,23 @@ spec:
                   a NopResource.
                 properties:
                   conditionAfter:
+                    description: 'ConditionAfter can be used to set status conditions
+                      after a specified time. By default a NopResource will only have
+                      a status condition of Type: Synced. It will never have a status
+                      condition of Type: Ready unless one is configured here.'
                     items:
-                      description: ResourceConditionAfter is a configurable field
-                        of NopResource.
+                      description: ResourceConditionAfter specifies a condition of
+                        a NopResource that should be set after a certain duration.
                       properties:
                         conditionStatus:
+                          description: ConditionStatus to set - e.g. True.
                           type: string
                         conditionType:
-                          description: A ConditionType represents a condition a resource
-                            could be in.
+                          description: ConditionType to set - e.g. Ready.
                           type: string
                         time:
+                          description: Time is the duration after which the condition
+                            should be set.
                           type: string
                       required:
                       - conditionStatus
@@ -81,8 +87,28 @@ spec:
                       - time
                       type: object
                     type: array
-                required:
-                - conditionAfter
+                  connectionDetails:
+                    description: ConnectionDetails that this NopResource should emit
+                      on each reconcile.
+                    items:
+                      description: ResourceConnectionDetail specifies a connection
+                        detail a NopResource should emit.
+                      properties:
+                        key:
+                          description: Name of the connection detail.
+                          type: string
+                        value:
+                          description: Value of the connection detail.
+                          type: string
+                      required:
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  fields:
+                    description: Fields is an arbitrary object you can patch to and
+                      from. It has no schema, is not validated, and is not used by
+                      the NopResource controller.
                 type: object
               providerConfigRef:
                 default:
@@ -262,8 +288,10 @@ spec:
                 description: NopResourceObservation are the observable fields of a
                   NopResource.
                 properties:
-                  observableField:
-                    type: string
+                  fields:
+                    description: Fields is an arbitrary object you can patch to and
+                      from. It has no schema, is not validated, and is not used by
+                      the NopResource controller.
                 type: object
               conditions:
                 description: Conditions of the resource.

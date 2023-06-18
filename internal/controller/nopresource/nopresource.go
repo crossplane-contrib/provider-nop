@@ -106,8 +106,14 @@ func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservatio
 		})
 	}
 
+	// Emit any connection details we were asked to.
+	cd := managed.ConnectionDetails{}
+	for _, nv := range nop.Spec.ForProvider.ConnectionDetails {
+		cd[nv.Name] = []byte(nv.Value)
+	}
+
 	// If our managed resource has not been deleted we report that our
 	// pretend external resource exists and is up-to-date. This means
 	// we'll never call the CreateFn or UpdateFn.
-	return managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true}, nil
+	return managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ConnectionDetails: cd}, nil
 }
