@@ -62,9 +62,7 @@ func TestReconcileLogic(t *testing.T) {
 			reason: "No conditions should be set if not enough time has passed for any desired conditions to be applied.",
 			mg: &v1alpha1.NopResource{
 				ObjectMeta: metav1.ObjectMeta{
-					// Almost, but not quite two seconds. The earliest condition
-					// should be set at two seconds.
-					CreationTimestamp: metav1.NewTime(now.Add(-1999 * time.Millisecond)),
+					CreationTimestamp: metav1.NewTime(now.Add(-1 * time.Second)),
 				},
 				Spec: v1alpha1.NopResourceSpec{
 					ForProvider: v1alpha1.NopResourceParameters{
@@ -74,7 +72,7 @@ func TestReconcileLogic(t *testing.T) {
 			},
 			want: &v1alpha1.NopResource{
 				ObjectMeta: metav1.ObjectMeta{
-					CreationTimestamp: metav1.NewTime(now.Add(-1999 * time.Millisecond)),
+					CreationTimestamp: metav1.NewTime(now.Add(-1 * time.Second)),
 				},
 				Spec: v1alpha1.NopResourceSpec{
 					ForProvider: v1alpha1.NopResourceParameters{
