@@ -99,9 +99,14 @@ func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservatio
 		}
 
 		// This is the latest condition of this type that should be set.
+		var r xpv1.ConditionReason
+		if ca.ConditionReason != nil {
+			r = *ca.ConditionReason
+		}
 		nop.SetConditions(xpv1.Condition{
 			Type:               ca.ConditionType,
 			Status:             ca.ConditionStatus,
+			Reason:             r,
 			LastTransitionTime: metav1.Now(),
 		})
 

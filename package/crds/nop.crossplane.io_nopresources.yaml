@@ -71,6 +71,9 @@ spec:
                       description: ResourceConditionAfter specifies a condition of
                         a NopResource that should be set after a certain duration.
                       properties:
+                        conditionReason:
+                          description: ConditionReason to set - e.g. Available.
+                          type: string
                         conditionStatus:
                           description: ConditionStatus to set - e.g. True.
                           type: string

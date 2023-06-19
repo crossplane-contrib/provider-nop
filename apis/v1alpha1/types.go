@@ -35,6 +35,10 @@ type ResourceConditionAfter struct {
 
 	// ConditionStatus to set - e.g. True.
 	ConditionStatus corev1.ConditionStatus `json:"conditionStatus"`
+
+	// ConditionReason to set - e.g. Available.
+	// +optional
+	ConditionReason *xpv1.ConditionReason `json:"conditionReason,omitempty"`
 }
 
 // ResourceConnectionDetail specifies a connection detail a NopResource should
