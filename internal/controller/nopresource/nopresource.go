@@ -14,25 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package nopresource is a controller for a managed resource that does nothing.
 package nopresource
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
-
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
@@ -40,119 +38,89 @@ import (
 )
 
 // Setup adds a controller that reconciles NopResource managed resources.
-func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
+func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.NopResourceGroupKind)
 
-	r := NewReconciler(mgr)
+	r := managed.NewReconciler(mgr,
+		resource.ManagedKind(v1alpha1.NopResourceGroupVersionKind),
+		managed.WithPollInterval(o.PollInterval),
+		managed.WithExternalConnecter(&connecter{}),
+		managed.WithLogger(o.Logger.WithValues("controller", name)),
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
+		WithOptions(o.ForControllerRuntime()).
+		WithEventFilter(resource.DesiredStateChanged()).
 		For(&v1alpha1.NopResource{}).
-		Complete(r)
+		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
-// reconcileLogic returns a slice of indices from conditionAfter which states
-// the condition for each type specified till the given timeElapsed duration.
-func reconcileLogic(conditionAfter []v1alpha1.ResourceConditionAfter, timeElapsed time.Duration) []int {
-	latestTime := make(map[string]time.Duration)
-	latestIdx := make(map[string]int)
+type connecter struct{}
 
-	for i := 0; i < len(conditionAfter); i++ {
-		specTime, _ := time.ParseDuration(conditionAfter[i].Time)
+func (c *connecter) Connect(_ context.Context, _ resource.Managed) (managed.ExternalClient, error) {
+	return managed.ExternalClientFns{ObserveFn: Observe}, nil
+}
 
-		// For each ConditionType finds the latest time it was updated until the
-		// elapsed time and the corresponding index of the same in conditionAfter.
-		if timeElapsed >= specTime {
-			lastChange, ok := latestTime[conditionAfter[i].ConditionType]
-			if !ok || lastChange < specTime {
-				latestTime[conditionAfter[i].ConditionType] = specTime
-				latestIdx[conditionAfter[i].ConditionType] = i
-			}
+// Observe doesn't actually observe an external resource. Instead it sets the
+// most recent conditions that should occur per spec.forProvider.conditionAfter.
+func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
+	// If our managed resource has been deleted we need to report that
+	// our pretend external resource is gone in order for the delete
+	// process to complete. This means we'll never call the DeleteFn.
+	if meta.WasDeleted(mg) {
+		return managed.ExternalObservation{ResourceExists: false}, nil
+	}
+
+	nop, ok := mg.(*v1alpha1.NopResource)
+	if !ok {
+		return managed.ExternalObservation{}, errors.Errorf("managed resource was not a %T", &v1alpha1.NopResource{})
+	}
+
+	// Sort conditions, with those that should occur latest appearing first.
+	// We rely on the fact that the managed.Reconciler won't persist this sorted
+	// array because it occurred during the Observe function, and we didn't
+	// return ResourceLateInitialized: true.
+	sort.SliceStable(nop.Spec.ForProvider.ConditionAfter, func(i, j int) bool {
+		return nop.Spec.ForProvider.ConditionAfter[i].Time.Duration > nop.Spec.ForProvider.ConditionAfter[j].Time.Duration
+	})
+
+	age := time.Since(nop.ObjectMeta.CreationTimestamp.Time)
+	set := map[xpv1.ConditionType]bool{}
+	for _, ca := range nop.Spec.ForProvider.ConditionAfter {
+		if ca.Time.Duration > age {
+			// This condition should not occur yet.
+			continue
 		}
-	}
 
-	idxs := make([]int, 0, len(latestIdx))
-	for _, l := range latestIdx {
-		idxs = append(idxs, l)
-	}
+		if set[ca.ConditionType] {
+			// We already encountered and set a condition of this type.
+			continue
+		}
 
-	return idxs
-}
-
-// A Reconciler reconciles managed resources by creating and managing the
-// lifecycle of an external resource, i.e. a resource in an external system such
-// as a cloud provider API. Each controller must watch the managed resource kind
-// for which it is responsible.
-type Reconciler struct {
-	client client.Client
-
-	pollInterval time.Duration
-	timeout      time.Duration
-
-	log    logging.Logger
-	record event.Recorder
-}
-
-const (
-	reconcileGracePeriod = 30 * time.Second
-	reconcileTimeout     = 1 * time.Minute
-	defaultpollInterval  = 1 * time.Second
-)
-
-// NewReconciler builds a reconciler for managing NopResource.
-func NewReconciler(m manager.Manager) *Reconciler {
-
-	r := &Reconciler{
-		client:       m.GetClient(),
-		pollInterval: defaultpollInterval,
-		timeout:      reconcileTimeout,
-		log:          logging.NewNopLogger(),
-		record:       event.NewNopRecorder(),
-	}
-
-	return r
-}
-
-const (
-	errGetManaged          = "cannot get managed resource"
-	errUpdateManagedStatus = "cannot update managed resource status"
-)
-
-// Reconcile a managed resource with an external resource.
-func (r *Reconciler) Reconcile(_ context.Context, req reconcile.Request) (reconcile.Result, error) {
-
-	log := r.log.WithValues("request", req)
-	log.Debug("Reconciling")
-
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout+reconcileGracePeriod)
-	defer cancel()
-
-	managed := &v1alpha1.NopResource{}
-
-	if err := r.client.Get(ctx, req.NamespacedName, managed); err != nil {
-		// There's no need to requeue if we no longer exist. Otherwise we'll be
-		// requeued implicitly because we return an error.
-		log.Debug("Cannot get managed resource", "error", err)
-		return reconcile.Result{}, errors.Wrap(resource.IgnoreNotFound(err), errGetManaged)
-	}
-
-	startTime := managed.CreationTimestamp
-
-	ci := reconcileLogic(managed.Spec.ForProvider.ConditionAfter, time.Since(startTime.Time))
-
-	for _, l := range ci {
-
-		x := xpv1.Condition{
-			Type:               xpv1.ConditionType(managed.Spec.ForProvider.ConditionAfter[l].ConditionType),
-			Status:             v1.ConditionStatus(managed.Spec.ForProvider.ConditionAfter[l].ConditionStatus),
+		// This is the latest condition of this type that should be set.
+		var r xpv1.ConditionReason
+		if ca.ConditionReason != nil {
+			r = *ca.ConditionReason
+		}
+		nop.SetConditions(xpv1.Condition{
+			Type:               ca.ConditionType,
+			Status:             ca.ConditionStatus,
+			Reason:             r,
 			LastTransitionTime: metav1.Now(),
-			Reason:             xpv1.ReasonAvailable,
-		}
+		})
 
-		managed.Status.SetConditions(x)
+		set[ca.ConditionType] = true
 	}
 
-	log.Debug("Successfully requested update of external resource", "requeue-after", time.Now().Add(r.pollInterval))
+	// Emit any connection details we were asked to.
+	cd := managed.ConnectionDetails{}
+	for _, nv := range nop.Spec.ForProvider.ConnectionDetails {
+		cd[nv.Name] = []byte(nv.Value)
+	}
 
-	return reconcile.Result{RequeueAfter: r.pollInterval}, errors.Wrap(r.client.Status().Update(ctx, managed), errUpdateManagedStatus)
+	// If our managed resource has not been deleted we report that our
+	// pretend external resource exists and is up-to-date. This means
+	// we'll never call the CreateFn or UpdateFn.
+	return managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ConnectionDetails: cd}, nil
 }

@@ -28,23 +28,42 @@ NPROCS ?= 1
 # to half the number of CPU cores.
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
+GO_REQUIRED_VERSION ?= 1.19
+GOLANGCILINT_VERSION ?= 1.53.3
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
-GO_LDFLAGS += -X $(GO_PROJECT)/pkg/version.Version=$(VERSION)
-GO_SUBDIRS += cmd pkg apis
+GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
+GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
 -include build/makelib/golang.mk
 
 # ====================================================================================
 # Setup Kubernetes tools
 
+KIND_VERSION = v0.15.0
+KIND_NODE_IMAGE_TAG ?= v1.27.3
+UP_VERSION = v0.17.0
+UP_CHANNEL = stable
 -include build/makelib/k8s_tools.mk
 
 # ====================================================================================
 # Setup Images
 
-DOCKER_REGISTRY = crossplane
-IMAGES = provider-nop provider-nop-controller
--include build/makelib/image.mk
+IMAGES = provider-nop
+-include build/makelib/imagelight.mk
+
+# ====================================================================================
+# Setup XPKG
+
+XPKG_REG_ORGS ?= xpkg.upbound.io/crossplane-contrib index.docker.io/crossplanecontrib
+# NOTE(hasheddan): skip promoting on xpkg.upbound.io as channel tags are
+# inferred.
+XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/crossplane-contrib
+XPKGS = provider-nop
+-include build/makelib/xpkg.mk
+
+# We force image building to happen prior to xpkg build so that we ensure image
+# is present in daemon.
+xpkg.build.provider-nop: do.build.images
 
 # ====================================================================================
 # Targets
@@ -75,29 +94,32 @@ crds.clean:
 
 generate: crds.clean
 
-# Ensure a PR is ready for review.
-reviewable: generate lint
-	@go mod tidy
-
-# Ensure branch is clean.
-check-diff: reviewable
-	@$(INFO) checking that branch is clean
-	@test -z "$$(git status --porcelain)" || $(FAIL)
-	@$(OK) branch is clean
-
 # integration tests
 e2e.run: test-integration
 
 # Run integration tests.
 test-integration: $(KIND) $(KUBECTL) $(HELM3)
 	@$(INFO) running integration tests using kind $(KIND_VERSION)
-	@$(ROOT_DIR)/cluster/local/integration_tests.sh || $(FAIL)
+	@KIND_NODE_IMAGE_TAG=${KIND_NODE_IMAGE_TAG} $(ROOT_DIR)/cluster/local/integration_tests.sh || $(FAIL)
 	@$(OK) integration tests passed
 
 # Update the submodules, such as the common build scripts.
 submodules:
 	@git submodule sync
 	@git submodule update --init --recursive
+
+# We must ensure up is installed in tool cache prior to build as including the
+# k8s_tools machinery prior to the xpkg machinery sets UP to point to tool cache.
+build.init: $(UP)
+
+# NOTE(hasheddan): the build submodule currently overrides XDG_CACHE_HOME in
+# order to force the Helm 3 to use the .work/helm directory. This causes Go on
+# Linux machines to use that directory as the build cache as well. We should
+# adjust this behavior in the build submodule because it is also causing Linux
+# users to duplicate their build cache, but for now we just make it easier to
+# identify its location in CI so that we cache between builds.
+go.cachedir:
+	@go env GOCACHE
 
 # This is for running out-of-cluster locally, and is for convenience. Running
 # this make target will print out the command which was used. For more control,
@@ -111,10 +133,7 @@ dev: generate
 	kubectl apply -f package/crds/ -R
 	go run cmd/provider/main.go -d
 
-manifests:
-	@$(INFO) Deprecated. Run make generate instead.
-
-.PHONY: cobertura reviewable submodules fallthrough test-integration run crds.clean manifests
+.PHONY: cobertura reviewable submodules fallthrough test-integration run crds.clean
 
 # ====================================================================================
 # Special Targets

@@ -14,15 +14,4 @@ metadata:
       reflect the conditions from the spec in their status. This can be useful
       for testing managing managed resources in larger systems.
     readme: |
-      `provider-nop` is the Crossplane infrastructure provider that does exactly
-      what it is told. Available resources and their fields can be found in the
-      [CRD
-      Docs](https://doc.crds.dev/github.com/crossplane-contrib/provider-nop). If
-      you encounter an issue please reach out on
-      [slack.crossplane.io](https://slack.crossplane.io) and create an issue in
-      the
-      [crossplane-contrib/provider-nop](https://github.com/crossplane-contrib/provider-nop)
-      repo.
-spec:
-  controller:
-    image: crossplane/provider-nop-controller:VERSION
+      The nop Crossplane provider enables testing managed resources.
