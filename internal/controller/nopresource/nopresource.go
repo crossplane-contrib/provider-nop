@@ -48,6 +48,13 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.NopResource{}).
+		WithValidator(v1alpha1.NopResourceValidator).
+		Complete(); err != nil {
+		return errors.Wrap(err, "cannot set up webhooks")
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
