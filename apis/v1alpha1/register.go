@@ -21,6 +21,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"github.com/crossplane/crossplane-runtime/pkg/webhook"
 )
 
 // Package type metadata.
@@ -43,8 +45,13 @@ var (
 	NopResourceGroupKind        = schema.GroupKind{Group: Group, Kind: NopResourceKind}.String()
 	NopResourceKindAPIVersion   = NopResourceKind + "." + SchemeGroupVersion.String()
 	NopResourceGroupVersionKind = SchemeGroupVersion.WithKind(NopResourceKind)
+
+	// NopResourceValidator is doing nothing on purpose at the moment, you now... a nop validator.
+	NopResourceValidator = webhook.NewValidator()
 )
 
 func init() {
 	SchemeBuilder.Register(&NopResource{}, &NopResourceList{})
 }
+
+// +kubebuilder:webhook:verbs=create;update,path=/validate-nop-crossplane-io-v1alpha1-nopresource,mutating=false,failurePolicy=fail,groups=nop.crossplane.io,resources=nopresources,versions=v1alpha1,name=nopresources.nop.crossplane.io,sideEffects=None,admissionReviewVersions=v1

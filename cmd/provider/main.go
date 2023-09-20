@@ -38,12 +38,13 @@ import (
 
 func main() {
 	var (
-		app              = kingpin.New(filepath.Base(os.Args[0]), "Doing-nothing support for Crossplane. :)").DefaultEnvars()
-		debug            = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
-		syncInterval     = app.Flag("sync", "Sync interval controls how often all resources will be double checked for drift.").Short('s').Default("1h").Duration()
-		pollInterval     = app.Flag("poll", "Poll interval controls how often an individual resource should be checked for drift.").Default("10s").Duration()
-		leaderElection   = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").Envar("LEADER_ELECTION").Bool()
-		maxReconcileRate = app.Flag("max-reconcile-rate", "The maximum number of concurrent reconciliation operations.").Default("1").Int()
+		app               = kingpin.New(filepath.Base(os.Args[0]), "Doing-nothing support for Crossplane. :)").DefaultEnvars()
+		debug             = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
+		syncInterval      = app.Flag("sync", "Sync interval controls how often all resources will be double checked for drift.").Short('s').Default("1h").Duration()
+		pollInterval      = app.Flag("poll", "Poll interval controls how often an individual resource should be checked for drift.").Default("10s").Duration()
+		leaderElection    = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").Envar("LEADER_ELECTION").Bool()
+		maxReconcileRate  = app.Flag("max-reconcile-rate", "The maximum number of concurrent reconciliation operations.").Default("1").Int()
+		webhookTLSCertDir = app.Flag("webhook-tls-cert-dir", "The directory of TLS certificate that will be used by the webhook server. There should be tls.crt and tls.key files.").Envar("WEBHOOK_TLS_CERT_DIR").String()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -89,5 +90,11 @@ func main() {
 
 	kingpin.FatalIfError(apis.AddToScheme(mgr.GetScheme()), "Cannot add Nop APIs to scheme")
 	kingpin.FatalIfError(nop.Setup(mgr, o), "Cannot setup Nop controllers")
+	if *webhookTLSCertDir != "" {
+		ws := mgr.GetWebhookServer()
+		ws.Port = 9443
+		ws.CertDir = *webhookTLSCertDir
+		ws.TLSMinVersion = "1.3"
+	}
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }
