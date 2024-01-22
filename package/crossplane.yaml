@@ -25,4 +25,4 @@ metadata:
       repo.
 spec:
   controller:
-    image: crossplane/provider-nop-controller:VERSION
+    image: index.docker.io/crossplane/provider-nop-controller:VERSION
