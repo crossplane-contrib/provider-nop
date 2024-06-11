@@ -33,6 +33,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/pkg/statemetrics"
 
 	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
@@ -46,7 +47,9 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithExternalConnecter(&connecter{}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
+		managed.WithMetricRecorder(o.MetricOptions.MRMetrics),
+	)
 
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.NopResource{}).
@@ -55,6 +58,10 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		return errors.Wrap(err, "cannot set up webhooks")
 	}
 
+	if err := mgr.Add(statemetrics.NewMRStateRecorder(
+		mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1alpha1.NopResourceList{}, o.MetricOptions.PollStateMetricInterval)); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
