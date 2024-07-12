@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/crossplane-contrib/provider-nop/apis"
+	nop "github.com/crossplane-contrib/provider-nop/internal/controller"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,9 +38,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/statemetrics"
-
-	"github.com/crossplane-contrib/provider-nop/apis"
-	nop "github.com/crossplane-contrib/provider-nop/internal/controller"
 )
 
 const (

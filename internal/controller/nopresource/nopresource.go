@@ -22,6 +22,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,8 +35,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/pkg/statemetrics"
-
-	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
 // Setup adds a controller that reconciles NopResource managed resources.

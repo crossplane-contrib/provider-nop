@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +29,6 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
-
-	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
 // Unlike many Kubernetes projects Crossplane does not use third party testing
@@ -41,7 +40,6 @@ import (
 // https://github.com/crossplane/crossplane/blob/master/CONTRIBUTING.md#contributing-code
 
 func TestReconcileLogic(t *testing.T) {
-
 	c := []v1alpha1.ResourceConditionAfter{
 		{Time: metav1.Duration{Duration: 10 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
 		{Time: metav1.Duration{Duration: 5 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
@@ -218,5 +216,4 @@ func TestReconcileLogic(t *testing.T) {
 			}
 		})
 	}
-
 }
