@@ -28,6 +28,8 @@ NPROCS ?= 1
 # to half the number of CPU cores.
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
+# If you change this, make sure to update .github/workflows/ci.yml as well, since it 
+# uses its own linter config.
 GOLANGCILINT_VERSION ?= 1.59.0
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_SUBDIRS += cmd internal apis
