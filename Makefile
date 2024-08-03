@@ -28,10 +28,10 @@ NPROCS ?= 1
 # to half the number of CPU cores.
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
-GO_REQUIRED_VERSION ?= 1.19
-GOLANGCILINT_VERSION ?= 1.53.3
+# If you change this, make sure to update .github/workflows/ci.yml as well, since it 
+# uses its own linter config.
+GOLANGCILINT_VERSION ?= 1.59.0
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
-GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
 GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
 -include build/makelib/golang.mk
@@ -39,9 +39,8 @@ GO111MODULE = on
 # ====================================================================================
 # Setup Kubernetes tools
 
-KIND_VERSION = v0.15.0
-KIND_NODE_IMAGE_TAG ?= v1.27.3
-UP_VERSION = v0.17.0
+KIND_VERSION = v0.22.0
+UP_VERSION = v0.28.0
 UP_CHANNEL = stable
 -include build/makelib/k8s_tools.mk
 

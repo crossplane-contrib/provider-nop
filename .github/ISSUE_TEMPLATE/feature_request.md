@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Help us make Crossplane Provider GitLab more useful
+about: Help us make Crossplane more useful
 labels: enhancement
 ---
 <!--

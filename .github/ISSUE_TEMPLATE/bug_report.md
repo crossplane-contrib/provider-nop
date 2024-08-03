@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Help us diagnose and fix bugs in Crossplane Provider GitLab
+about: Help us diagnose and fix bugs in Crossplane
 labels: bug
 ---
 <!--
@@ -27,7 +27,7 @@ appreciated!
 
 ### What environment did it happen in?
 Crossplane version: 
-Crossplane Provider GitLab version:
+
 <!--
 Include at least the version or commit of Crossplane you were running. Consider
 also including your:

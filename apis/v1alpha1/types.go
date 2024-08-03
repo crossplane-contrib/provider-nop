@@ -108,7 +108,7 @@ type NopResource struct {
 
 // +kubebuilder:object:root=true
 
-// NopResourceList contains a list of NopResource
+// NopResourceList contains a list of NopResource.
 type NopResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
