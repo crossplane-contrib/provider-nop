@@ -28,7 +28,7 @@ NPROCS ?= 1
 # to half the number of CPU cores.
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
-# If you change this, make sure to update .github/workflows/ci.yml as well, since it 
+# If you change this, make sure to update .github/workflows/ci.yml as well, since it
 # uses its own linter config.
 GOLANGCILINT_VERSION ?= 1.59.0
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
@@ -53,7 +53,7 @@ IMAGES = provider-nop
 # ====================================================================================
 # Setup XPKG
 
-XPKG_REG_ORGS ?= xpkg.upbound.io/crossplane-contrib
+XPKG_REG_ORGS ?= ghcr.io/crossplane-contrib xpkg.upbound.io/crossplane-contrib
 # NOTE(hasheddan): skip promoting on xpkg.upbound.io as channel tags are
 # inferred.
 XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/crossplane-contrib
