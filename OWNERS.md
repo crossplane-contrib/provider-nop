@@ -11,4 +11,10 @@ guidelines and responsibilities for the steering committee and maintainers.
 ## Maintainers
 
 * Nic Cope <negz@upbound.io> ([negz](https://github.com/negz))
+* Hasan Turken <hasan@upbound.io> ([turkenh](https://github.com/turkenh))
+* Philippe Scorsolini <philippe.scorsolini@upbound.io> ([phisco](https://github.com/phisco))
+* Jared Watts <jared@upbound.io> ([jbw976](https://github.com/jbw976))
+
+## Emeritus Maintainers
+
 * Daniel Mangum <dan@upbound.io> ([hasheddan](https://github.com/hasheddan))
