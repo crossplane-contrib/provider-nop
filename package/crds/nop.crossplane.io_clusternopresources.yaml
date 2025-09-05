@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: nopresources.nop.crossplane.io
+  name: clusternopresources.nop.crossplane.io
 spec:
   group: nop.crossplane.io
   names:
@@ -12,11 +12,11 @@ spec:
     - crossplane
     - managed
     - nop
-    kind: NopResource
-    listKind: NopResourceList
-    plural: nopresources
-    singular: nopresource
-  scope: Namespaced
+    kind: ClusterNopResource
+    listKind: ClusterNopResourceList
+    plural: clusternopresources
+    singular: clusternopresource
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
@@ -31,7 +31,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A NopResource is an example API type.
+        description: A ClusterNopResource is an example API type.
         properties:
           apiVersion:
             description: |-

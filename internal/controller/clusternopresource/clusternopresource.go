@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Crossplane Authors.
+Copyright 2025 The Crossplane Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package nopresource is a controller for a managed resource that does nothing.
-package nopresource
+// Package clusternopresource is a controller for a managed resource that does nothing.
+package clusternopresource
 
 import (
 	"context"
@@ -43,16 +43,16 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 		if err := Setup(mgr, o); err != nil {
 			panic(err)
 		}
-	}, v1alpha1.NopResourceGroupVersionKind)
+	}, v1alpha1.ClusterNopResourceGroupVersionKind)
 	return nil
 }
 
 // Setup adds a controller that reconciles NopResource managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
-	name := managed.ControllerName(v1alpha1.NopResourceGroupKind)
+	name := managed.ControllerName(v1alpha1.ClusterNopResourceGroupKind)
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.NopResourceGroupVersionKind),
+		resource.ManagedKind(v1alpha1.ClusterNopResourceGroupVersionKind),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithExternalConnector(&connector{}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
@@ -61,21 +61,21 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	)
 
 	if err := ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.NopResource{}).
-		WithValidator(v1alpha1.NopResourceValidator).
+		For(&v1alpha1.ClusterNopResource{}).
+		WithValidator(v1alpha1.ClusterNopResourceValidator).
 		Complete(); err != nil {
 		return errors.Wrap(err, "cannot set up webhooks")
 	}
 
 	if err := mgr.Add(statemetrics.NewMRStateRecorder(
-		mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1alpha1.NopResourceList{}, o.MetricOptions.PollStateMetricInterval)); err != nil {
+		mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1alpha1.ClusterNopResourceList{}, o.MetricOptions.PollStateMetricInterval)); err != nil {
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
-		For(&v1alpha1.NopResource{}).
+		For(&v1alpha1.ClusterNopResource{}).
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
@@ -100,9 +100,9 @@ func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservatio
 		return managed.ExternalObservation{ResourceExists: false}, nil
 	}
 
-	nop, ok := mg.(*v1alpha1.NopResource)
+	nop, ok := mg.(*v1alpha1.ClusterNopResource)
 	if !ok {
-		return managed.ExternalObservation{}, errors.Errorf("managed resource was not a %T", &v1alpha1.NopResource{})
+		return managed.ExternalObservation{}, errors.Errorf("managed resource was not a %T", &v1alpha1.ClusterNopResource{})
 	}
 	status := conditions.ObservedGenerationPropagationManager{}.For(nop)
 	age := time.Since(nop.CreationTimestamp.Time)

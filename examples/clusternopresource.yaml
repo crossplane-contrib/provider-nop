@@ -1,8 +1,7 @@
 apiVersion: nop.crossplane.io/v1alpha1
-kind: NopResource
+kind: ClusterNopResource
 metadata:
   name: example
-  namespace: default
 spec:
   forProvider:
     # The NopResource spec.forProvider.fields is an arbitrary,
@@ -48,5 +47,5 @@ spec:
   # Simulating connection details (see connectionDetails above) works
   # only when the NopResource writes a connection secret.
   writeConnectionSecretToRef:
-    namespace: default
+    namespace: crossplane-system
     name: nop-example-resource

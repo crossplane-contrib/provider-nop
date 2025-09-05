@@ -3,15 +3,18 @@ kind: Provider
 metadata:
   name: provider-nop
   annotations:
-    company: Crossplane
-    maintainer: Crossplane Maintainers <info@crossplane.io>
-    source: github.com/crossplane-contrib/provider-nop
-    license: Apache-2.0
-    descriptionShort: |
+    meta.crossplane.io/company: Crossplane
+    meta.crossplane.io/maintainer: Crossplane Maintainers <info@crossplane.io>
+    meta.crossplane.io/source: github.com/crossplane-contrib/provider-nop
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/descriptionShort: |
       The nop Crossplane provider enables testing managed resources.
-    description: |
+    meta.crossplane.io/description: |
       The nop Crossplane provider adds support for managing resources that
       reflect the conditions from the spec in their status. This can be useful
       for testing managing managed resources in larger systems.
-    readme: |
+    meta.crossplane.io/readme: |
       The nop Crossplane provider enables testing managed resources.
+spec:
+  capabilities:
+    - safe-start

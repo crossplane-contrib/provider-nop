@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/crossplane/crossplane-runtime/pkg/webhook"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/webhook"
 )
 
 // Package type metadata.
@@ -41,6 +41,11 @@ var (
 
 // NopResource type metadata.
 var (
+	ClusterNopResourceKind             = reflect.TypeOf(ClusterNopResource{}).Name()
+	ClusterNopResourceGroupKind        = schema.GroupKind{Group: Group, Kind: ClusterNopResourceKind}.String()
+	ClusterNopResourceKindAPIVersion   = NopResourceKind + "." + SchemeGroupVersion.String()
+	ClusterNopResourceGroupVersionKind = SchemeGroupVersion.WithKind(ClusterNopResourceKind)
+
 	NopResourceKind             = reflect.TypeOf(NopResource{}).Name()
 	NopResourceGroupKind        = schema.GroupKind{Group: Group, Kind: NopResourceKind}.String()
 	NopResourceKindAPIVersion   = NopResourceKind + "." + SchemeGroupVersion.String()
@@ -48,10 +53,17 @@ var (
 
 	// NopResourceValidator is doing nothing on purpose at the moment, you now... a nop validator.
 	NopResourceValidator = webhook.NewValidator()
+
+	// ClusterNopResourceValidator is doing nothing on purpose at the moment, you now... a nop validator.
+	ClusterNopResourceValidator = webhook.NewValidator()
 )
 
 func init() {
-	SchemeBuilder.Register(&NopResource{}, &NopResourceList{})
+	SchemeBuilder.Register(
+		&NopResource{}, &NopResourceList{},
+		&ClusterNopResource{}, &ClusterNopResourceList{},
+	)
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-nop-crossplane-io-v1alpha1-nopresource,mutating=false,failurePolicy=fail,groups=nop.crossplane.io,resources=nopresources,versions=v1alpha1,name=nopresources.nop.crossplane.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-nop-crossplane-io-v1alpha1-clusternopresource,mutating=false,failurePolicy=fail,groups=nop.crossplane.io,resources=clusternopresources,versions=v1alpha1,name=clusternopresources.nop.crossplane.io,sideEffects=None,admissionReviewVersions=v1

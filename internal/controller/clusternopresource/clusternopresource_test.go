@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Crossplane Authors.
+Copyright 2025 The Crossplane Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package nopresource
+package clusternopresource
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func TestReconcileLogic(t *testing.T) {
 	}{
 		"NoDesiredConditionsYet": {
 			reason: "No conditions should be set if not enough time has passed for any desired conditions to be applied.",
-			mg: &v1alpha1.NopResource{
+			mg: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					CreationTimestamp: metav1.NewTime(now.Add(-1 * time.Second)),
 					Generation:        42,
@@ -70,7 +70,7 @@ func TestReconcileLogic(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.NopResource{
+			want: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					CreationTimestamp: metav1.NewTime(now.Add(-1 * time.Second)),
 					Generation:        42,
@@ -84,7 +84,7 @@ func TestReconcileLogic(t *testing.T) {
 		},
 		"ReadyForOneDesiredCondition": {
 			reason: "Only one condition should be set if enough time has passed for only one desired condition.",
-			mg: &v1alpha1.NopResource{
+			mg: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					// The earliest condition (5) should be set at two seconds.
 					CreationTimestamp: metav1.NewTime(now.Add(-2 * time.Second)),
@@ -96,7 +96,7 @@ func TestReconcileLogic(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.NopResource{
+			want: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					CreationTimestamp: metav1.NewTime(now.Add(-2 * time.Second)),
 					Generation:        42,
@@ -124,7 +124,7 @@ func TestReconcileLogic(t *testing.T) {
 		},
 		"OnlyLatestConditionsAreSet": {
 			reason: "When there are many conditions of the same time, only the latest eligible conditions should be set.",
-			mg: &v1alpha1.NopResource{
+			mg: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					// After 8 seconds conditions 2 (Ready=True) and 3
 					// (Synced=False) should be set. Condition 2 supercedes
@@ -139,7 +139,7 @@ func TestReconcileLogic(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.NopResource{
+			want: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					CreationTimestamp: metav1.NewTime(now.Add(-8 * time.Second)),
 					Generation:        42,
@@ -173,7 +173,7 @@ func TestReconcileLogic(t *testing.T) {
 		},
 		"LongTimeReconcileBehaviour": {
 			reason: "Indexes with last set status of each condition type should be returned till given time elapsed.",
-			mg: &v1alpha1.NopResource{
+			mg: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					// After 8 seconds conditions 2 (Ready=True) and 3
 					// (Synced=False) should be set. Condition 2 supercedes
@@ -188,7 +188,7 @@ func TestReconcileLogic(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.NopResource{
+			want: &v1alpha1.ClusterNopResource{
 				ObjectMeta: metav1.ObjectMeta{
 					CreationTimestamp: metav1.NewTime(now.Add(-50 * time.Second)),
 					Generation:        42,

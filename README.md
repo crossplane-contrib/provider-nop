@@ -1,12 +1,12 @@
 # provider-nop
 
-`provider-nop` is a Crossplane provider that does nothing. It provides one
-managed resource - a `NopResource` that does not orchestrate any external
-system. Each `NopResource` can be configured to emit arbitrary status conditions
-after a specified period of time. A `NopResource` can also emit arbitrary
-connection details.
+`provider-nop` is a Crossplane provider that does nothing. It provides two
+managed resources - `ClusterNopResource` and `NopResource` that does not 
+orchestrate any external system. Each `[Cluster]NopResource` can be configured
+to emit arbitrary status conditions after a specified period of time. A 
+`[Cluster]NopResource` can also emit arbitrary connection details.
 
-The main value of a `NopResource` is that it can be used to create a Crossplane
+The main value of a `ClusterNopResource` is that it can be used to create a Crossplane
 `Composition` that can satisfy any kind of composite resource by doing nothing.
 This can be useful for systems that automatically create a real composite
 resource (one that composes real cloud infrastructure) when running in
@@ -14,7 +14,7 @@ production, but that wish to avoid creating real infrastructure when running in
 development. It can also be useful for developing and testing Crossplane itself.
 
 The below `Composition` satisfies the `SQLInstance` composite resource kind by
-by composing a `NopResource`. When an `SQLInstance` is created it will become
+by composing a `ClusterNopResource`. When an `SQLInstance` is created it will become
 ready and write fake data to a connection secret.
 
 ```yaml
@@ -31,7 +31,7 @@ spec:
     - name: nop
       base:
         apiVersion: nop.crossplane.io/v1alpha1
-        kind: NopResource
+        kind: ClusterNopResource
         spec:
           forProvider:
             # The NopResource spec.forProvider.fields is an arbitrary,

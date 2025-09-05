@@ -17,17 +17,20 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/crossplane-contrib/provider-nop/internal/controller/nopresource"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+
+	"github.com/crossplane-contrib/provider-nop/internal/controller/clusternopresource"
+	"github.com/crossplane-contrib/provider-nop/internal/controller/nopresource"
 )
 
 // Setup creates all nop controllers with the supplied logger and adds them to
 // the supplied manager.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	for _, setup := range []func(ctrl.Manager, controller.Options) error{
-		nopresource.Setup,
+		nopresource.SetupGated,
+		clusternopresource.SetupGated,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err

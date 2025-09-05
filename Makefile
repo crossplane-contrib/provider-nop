@@ -30,7 +30,7 @@ GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
 # If you change this, make sure to update .github/workflows/ci.yml as well, since it
 # uses its own linter config.
-GOLANGCILINT_VERSION ?= 1.59.0
+GOLANGCILINT_VERSION ?= 2.3.0
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
@@ -40,8 +40,7 @@ GO111MODULE = on
 # Setup Kubernetes tools
 
 KIND_VERSION = v0.22.0
-UP_VERSION = v0.28.0
-UP_CHANNEL = stable
+CROSSPLANE_CLI_VERSION = v2.0.0
 -include build/makelib/k8s_tools.mk
 
 # ====================================================================================
@@ -108,8 +107,9 @@ submodules:
 	@git submodule update --init --recursive
 
 # We must ensure up is installed in tool cache prior to build as including the
-# k8s_tools machinery prior to the xpkg machinery sets UP to point to tool cache.
-build.init: $(UP)
+# k8s_tools machinery prior to the xpkg machinery sets crossplane CLI to point
+# to tool cache.
+build.init: $(CROSSPLANE_CLI)
 
 # NOTE(hasheddan): the build submodule currently overrides XDG_CACHE_HOME in
 # order to force the Helm 3 to use the .work/helm directory. This causes Go on

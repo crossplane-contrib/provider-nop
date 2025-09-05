@@ -10,8 +10,8 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.21'
-  GOLANGCI_VERSION: 'v1.59.0'
+  GO_VERSION: '1.24'
+  GOLANGCI_VERSION: 'v2.3.0'
   DOCKER_BUILDX_VERSION: 'v0.9.1'
 
   # Common users. We can't run a step 'if secrets.XXX != ""' but we can run a
@@ -73,7 +73,7 @@ jobs:
       # We could run 'make lint' but we prefer this action because it leaves
       # 'annotations' (i.e. it comments on PRs to point out linter violations).
       - name: Lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v8
         with:
           version: ${{ env.GOLANGCI_VERSION }}
 

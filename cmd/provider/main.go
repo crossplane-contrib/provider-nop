@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/crossplane-contrib/provider-nop/apis"
-	nop "github.com/crossplane-contrib/provider-nop/internal/controller"
 	"gopkg.in/alecthomas/kingpin.v2"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -32,12 +32,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/feature"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/statemetrics"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/gate"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/customresourcesgate"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
+
+	"github.com/crossplane-contrib/provider-nop/apis"
+	nop "github.com/crossplane-contrib/provider-nop/internal/controller"
 )
 
 const (
@@ -59,13 +64,8 @@ func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	zl := zap.New(zap.UseDevMode(*debug))
+	ctrl.SetLogger(zl)
 	log := logging.NewLogrLogger(zl.WithName("provider-nop"))
-	if *debug {
-		// The controller-runtime runs with a no-op logger by default. It is
-		// *very* verbose even at info level, so we only provide it a real
-		// logger when we're running in debug mode.
-		ctrl.SetLogger(zl)
-	}
 
 	log.Debug("Starting", "sync-period", syncInterval.String())
 
@@ -125,9 +125,12 @@ func main() {
 		GlobalRateLimiter:       ratelimiter.NewGlobal(*maxReconcileRate),
 		Features:                &feature.Flags{},
 		MetricOptions:           &mo,
+		Gate:                    new(gate.Gate[schema.GroupVersionKind]),
 	}
 
 	kingpin.FatalIfError(apis.AddToScheme(mgr.GetScheme()), "Cannot add Nop APIs to scheme")
+	kingpin.FatalIfError(extv1.AddToScheme(mgr.GetScheme()), "Cannot add Core API Extensions to scheme")
 	kingpin.FatalIfError(nop.Setup(mgr, o), "Cannot setup Nop controllers")
+	kingpin.FatalIfError(customresourcesgate.Setup(mgr, o), "Cannot setup CustomResourceGate controller")
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }

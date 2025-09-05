@@ -1,6 +1,3 @@
-//go:build generate
-// +build generate
-
 /*
 Copyright 2020 The Crossplane Authors.
 
@@ -17,26 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// NOTE: See the below link for details on what is happening here.
-// https://github.com/golang/go/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module
-
 // Remove existing manifests
 //go:generate rm -rf ../package/crds
 //go:generate rm -rf ../package/webhookconfigurations
 
 // Generate deepcopy methodsets and CRD manifests
-//go:generate go run -tags generate sigs.k8s.io/controller-tools/cmd/controller-gen object:headerFile=../hack/boilerplate.go.txt paths=./... crd:crdVersions=v1 output:artifacts:config=../package/crds
+//go:generate go tool controller-gen object:headerFile=../hack/boilerplate.go.txt paths=./... crd:crdVersions=v1 output:artifacts:config=../package/crds
 
-// Generate crossplane-runtime methodsets (resource.Claim, etc)
-//go:generate go run -tags generate github.com/crossplane/crossplane-tools/cmd/angryjet generate-methodsets --header-file=../hack/boilerplate.go.txt ./...
+// Generate crossplane-runtime methodsets
+//go:generate go tool angryjet generate-methodsets --header-file=../hack/boilerplate.go.txt ../apis/...
 
 // Generate webhook manifests
-//go:generate go run -tags generate sigs.k8s.io/controller-tools/cmd/controller-gen webhook paths=./... output:artifacts:config=../package/webhookconfigurations
+//go:generate go tool controller-gen webhook paths=./... output:artifacts:config=../package/webhookconfigurations
 
 package apis
-
-import (
-	_ "sigs.k8s.io/controller-tools/cmd/controller-gen" //nolint:typecheck
-
-	_ "github.com/crossplane/crossplane-tools/cmd/angryjet" //nolint:typecheck
-)
