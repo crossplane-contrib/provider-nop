@@ -112,6 +112,7 @@ func main() {
 	sm := statemetrics.NewMRStateMetrics()
 
 	metrics.Registry.MustRegister(mm)
+	metrics.Registry.MustRegister(sm)
 	mo := controller.MetricOptions{
 		PollStateMetricInterval: *pollStateMetricInterval,
 		MRMetrics:               mm,
