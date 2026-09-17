@@ -4,7 +4,8 @@
 managed resources - `ClusterNopResource` and `NopResource` that does not 
 orchestrate any external system. Each `[Cluster]NopResource` can be configured
 to emit arbitrary status conditions after a specified period of time. A 
-`[Cluster]NopResource` can also emit arbitrary connection details.
+`[Cluster]NopResource` can also emit arbitrary connection details, take a
+configurable minimum time to delete, or refuse to delete at all.
 
 The main value of a `ClusterNopResource` is that it can be used to create a Crossplane
 `Composition` that can satisfy any kind of composite resource by doing nothing.
@@ -61,6 +62,15 @@ spec:
             - time: 90s
               conditionType: Green
               conditionStatus: "True"
+            # A NopResource is deleted immediately unless told otherwise. deleteAfter
+            # is the minimum time its deletion takes - it reports that its external
+            # resource still exists until at least that long after its deletion
+            # timestamp - and deleteError makes deletion fail with that message every
+            # time, so the resource is never deleted at all. deleteError takes
+            # precedence over deleteAfter. Both are useful for testing deletion
+            # ordering, and what depends on a resource that will not go away.
+            # deleteAfter: 30s
+            # deleteError: "cannot delete: still in use"
             # The NopResource will emit whatever connection details it is told
             # to have. These are all plaintext - for testing only.
             connectionDetails:

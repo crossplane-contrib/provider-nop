@@ -18,6 +18,7 @@ package nopresource
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,7 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource/fake"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
 	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
@@ -227,6 +230,142 @@ func TestReconcileLogic(t *testing.T) {
 			_, _ = Observe(context.Background(), tc.mg)
 			if diff := cmp.Diff(tc.want, tc.mg, test.EquateConditions()); diff != "" {
 				t.Errorf("Observe(...): -want, +got:\n%s\n%s\n", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestObserveDeleted(t *testing.T) {
+	after := func(d time.Duration) *metav1.Duration { return &metav1.Duration{Duration: d} }
+	msg := func(s string) *string { return &s }
+	deletedAt := func(t time.Time) *metav1.Time { mt := metav1.NewTime(t); return &mt }
+
+	now := time.Now()
+
+	cases := map[string]struct {
+		reason string
+		mg     resource.Managed
+		want   managed.ExternalObservation
+		// wantCondition, if set, must match the Deletion condition.
+		wantCondition *xpv1.Condition
+	}{
+		"NotDeleted": {
+			reason: "A NopResource that hasn't been deleted still reports its external resource exists.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(now)},
+			},
+			want: managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true, ConnectionDetails: managed.ConnectionDetails{}},
+		},
+		"DeletedImmediately": {
+			reason: "With neither deleteAfter nor deleteError the external resource is gone as soon as the NopResource is deleted.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: deletedAt(now)},
+			},
+			want: managed.ExternalObservation{ResourceExists: false},
+		},
+		"DeletePending": {
+			reason: "Within deleteAfter of the deletion timestamp the external resource still exists, and the Deletion condition says when it can go.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: deletedAt(now.Add(-10 * time.Second)),
+					Generation:        42,
+				},
+				Spec: v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{DeleteAfter: after(30 * time.Second)}},
+			},
+			want: managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true},
+			wantCondition: &xpv1.Condition{
+				Type:               v1alpha1.TypeDeletion,
+				Status:             corev1.ConditionFalse,
+				Reason:             v1alpha1.ReasonDeletionPending,
+				Message:            fmt.Sprintf("External resource will not be deleted before %s (deleteAfter: 30s)", now.Add(20*time.Second).UTC().Format(time.RFC3339)),
+				LastTransitionTime: metav1.Now(),
+				ObservedGeneration: 42,
+			},
+		},
+		"DeleteFailed": {
+			reason: "A NopResource with deleteError never reports its external resource gone.",
+			mg: &v1alpha1.NopResource{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: deletedAt(now.Add(-time.Hour)),
+					Generation:        42,
+				},
+				Spec: v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{DeleteError: msg("cannot delete: still in use")}},
+			},
+			want: managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true},
+			wantCondition: &xpv1.Condition{
+				Type:               v1alpha1.TypeDeletion,
+				Status:             corev1.ConditionFalse,
+				Reason:             v1alpha1.ReasonDeletionFailed,
+				Message:            "cannot delete: still in use",
+				LastTransitionTime: metav1.Now(),
+				ObservedGeneration: 42,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := Observe(context.Background(), tc.mg)
+			if err != nil {
+				t.Fatalf("\n%s\nObserve(...): unexpected error: %v", tc.reason, err)
+			}
+
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("\n%s\nObserve(...): -want, +got:\n%s", tc.reason, diff)
+			}
+
+			c := tc.mg.(*v1alpha1.NopResource).GetCondition(v1alpha1.TypeDeletion)
+
+			if tc.wantCondition == nil {
+				if c.Reason != "" {
+					t.Errorf("\n%s\nObserve(...): unexpected Deletion condition %v", tc.reason, c)
+				}
+
+				return
+			}
+
+			if diff := cmp.Diff(*tc.wantCondition, c, test.EquateConditions()); diff != "" {
+				t.Errorf("\n%s\nObserve(...): -want Deletion condition, +got:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestDelete(t *testing.T) {
+	msg := "cannot delete: still in use"
+
+	cases := map[string]struct {
+		reason  string
+		mg      resource.Managed
+		wantErr string
+	}{
+		"WrongType": {
+			reason:  "Deleting something that isn't a NopResource is an error.",
+			mg:      &fake.Managed{},
+			wantErr: "managed resource was not a *v1alpha1.NopResource",
+		},
+		"Succeeds": {
+			reason: "Deleting is a no-op unless deleteError says otherwise.",
+			mg:     &v1alpha1.NopResource{},
+		},
+		"Fails": {
+			reason:  "deleteError is what makes a NopResource refuse to delete.",
+			mg:      &v1alpha1.NopResource{Spec: v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{DeleteError: &msg}}},
+			wantErr: msg,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := Delete(context.Background(), tc.mg)
+
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Errorf("\n%s\nDelete(...): unexpected error: %v", tc.reason, err)
+			case tc.wantErr != "" && err == nil:
+				t.Errorf("\n%s\nDelete(...): want error %q, got none", tc.reason, tc.wantErr)
+			case tc.wantErr != "" && err.Error() != tc.wantErr:
+				t.Errorf("\n%s\nDelete(...): want error %q, got %q", tc.reason, tc.wantErr, err.Error())
 			}
 		})
 	}
