@@ -69,11 +69,9 @@ type NopParameters struct {
 	// +optional
 	Fields runtime.RawExtension `json:"fields,omitempty"`
 
-	// DeleteAfter is the minimum time a deletion of this NopResource takes.
-	// Until this long after its deletion timestamp it reports that its
-	// external resource still exists. Deletion may take longer, since the
-	// resource is only rechecked when the controller requeues it. Omit to
-	// delete immediately.
+	// DeleteAfter is how long this NopResource takes to delete, measured from
+	// its deletion timestamp. Until then it reports that its external resource
+	// still exists. Omit to delete immediately.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('0s')",message="deleteAfter must not be negative"
 	DeleteAfter *metav1.Duration `json:"deleteAfter,omitempty"`

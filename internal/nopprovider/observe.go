@@ -94,13 +94,7 @@ func ObserveDeleted(nop v1alpha1.NopParameters, deleted time.Time, status condit
 		return managed.ExternalObservation{ResourceExists: true, ResourceUpToDate: true}
 	}
 
-	if nop.DeleteAfter == nil {
-		return managed.ExternalObservation{ResourceExists: false}
-	}
-
-	// deleteAfter is a minimum: nothing requeues us exactly at the deadline,
-	// so the resource goes away on the first reconcile after it passes.
-	if deadline := deleted.Add(nop.DeleteAfter.Duration); time.Now().Before(deadline) {
+	if deadline, ok := deletionDeadline(nop, deleted); ok && time.Now().Before(deadline) {
 		// The reconciler will overwrite Ready on its way past, so the deadline
 		// goes on a condition of our own.
 		status.MarkConditions(v1alpha1.DeletionPending(deadline, nop.DeleteAfter.Duration))

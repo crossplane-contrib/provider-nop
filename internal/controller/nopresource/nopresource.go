@@ -22,6 +22,7 @@ import (
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/conditions"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
@@ -76,7 +77,9 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
 		For(&v1alpha1.NopResource{}).
-		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
+		Complete(ratelimiter.NewReconciler(name,
+			nopprovider.RequeueAtDeadline(r, mgr.GetClient(), func() client.Object { return &v1alpha1.NopResource{} }),
+			o.GlobalRateLimiter))
 }
 
 type connector struct{}
