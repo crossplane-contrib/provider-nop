@@ -22,6 +22,7 @@ import (
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/conditions"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
@@ -76,7 +77,9 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
 		For(&v1alpha1.NopResource{}).
-		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
+		Complete(ratelimiter.NewReconciler(name,
+			nopprovider.RequeueAtDeadline(r, mgr.GetClient(), func() client.Object { return &v1alpha1.NopResource{} }),
+			o.GlobalRateLimiter))
 }
 
 type connector struct{}
@@ -84,6 +87,7 @@ type connector struct{}
 func (c *connector) Connect(_ context.Context, _ resource.Managed) (managed.ExternalClient, error) {
 	return managed.ExternalClientFns{
 		ObserveFn: Observe,
+		DeleteFn:  Delete,
 		DisconnectFn: func(_ context.Context) error {
 			return nil
 		},
@@ -93,19 +97,33 @@ func (c *connector) Connect(_ context.Context, _ resource.Managed) (managed.Exte
 // Observe doesn't actually observe an external resource. Instead, it sets the
 // most recent conditions that should occur per spec.forProvider.conditionAfter.
 func Observe(_ context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	// If our managed resource has been deleted we need to report that
-	// our pretend external resource is gone in order for the delete
-	// process to complete. This means we'll never call the DeleteFn.
-	if meta.WasDeleted(mg) {
-		return managed.ExternalObservation{ResourceExists: false}, nil
-	}
-
 	nop, ok := mg.(*v1alpha1.NopResource)
 	if !ok {
 		return managed.ExternalObservation{}, errors.Errorf("managed resource was not a %T", &v1alpha1.NopResource{})
 	}
+
 	status := conditions.ObservedGenerationPropagationManager{}.For(nop)
+
+	// Our pretend external resource takes at least
+	// spec.forProvider.deleteAfter to go away, and never goes away at all if
+	// spec.forProvider.deleteError is set. With neither it's gone at once.
+	if meta.WasDeleted(mg) {
+		return nopprovider.ObserveDeleted(nop.Spec.ForProvider, nop.DeletionTimestamp.Time, status), nil
+	}
+
 	age := time.Since(nop.CreationTimestamp.Time)
 
 	return nopprovider.Observe(nop.Spec.ForProvider, age, status)
+}
+
+// Delete doesn't actually delete an external resource. It fails if
+// spec.forProvider.deleteError is set, which is how a NopResource pretends to
+// be a resource that cannot be deleted.
+func Delete(_ context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
+	nop, ok := mg.(*v1alpha1.NopResource)
+	if !ok {
+		return managed.ExternalDelete{}, errors.Errorf("managed resource was not a %T", &v1alpha1.NopResource{})
+	}
+
+	return managed.ExternalDelete{}, nopprovider.Delete(nop.Spec.ForProvider)
 }

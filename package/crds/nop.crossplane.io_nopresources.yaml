@@ -119,6 +119,22 @@ spec:
                       - value
                       type: object
                     type: array
+                  deleteAfter:
+                    description: |-
+                      DeleteAfter is how long this NopResource takes to delete, measured from
+                      its deletion timestamp. Until then it reports that its external resource
+                      still exists. Omit to delete immediately.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: deleteAfter must not be negative
+                      rule: duration(self) >= duration('0s')
+                  deleteError:
+                    description: |-
+                      DeleteError makes deletion of this NopResource fail with this message,
+                      every time, so that it is never deleted. It takes precedence over
+                      deleteAfter. Clear it to let the resource be deleted.
+                    minLength: 1
+                    type: string
                   fields:
                     description: |-
                       Fields is an arbitrary object you can patch to and from. It has no

@@ -68,6 +68,20 @@ type NopParameters struct {
 	// schema, is not validated, and is not used by the NopResource controller.
 	// +optional
 	Fields runtime.RawExtension `json:"fields,omitempty"`
+
+	// DeleteAfter is how long this NopResource takes to delete, measured from
+	// its deletion timestamp. Until then it reports that its external resource
+	// still exists. Omit to delete immediately.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('0s')",message="deleteAfter must not be negative"
+	DeleteAfter *metav1.Duration `json:"deleteAfter,omitempty"`
+
+	// DeleteError makes deletion of this NopResource fail with this message,
+	// every time, so that it is never deleted. It takes precedence over
+	// deleteAfter. Clear it to let the resource be deleted.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DeleteError *string `json:"deleteError,omitempty"`
 }
 
 // NopObservation are the observable fields of a NopResource.
