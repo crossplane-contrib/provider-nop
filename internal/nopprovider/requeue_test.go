@@ -23,12 +23,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
@@ -44,6 +46,18 @@ func TestRequeueAtDeadline(t *testing.T) {
 	deletedAgo := func(d time.Duration) metav1.ObjectMeta {
 		ts := metav1.NewTime(now.Add(-d))
 		return metav1.ObjectMeta{DeletionTimestamp: &ts}
+	}
+	createdAgo := func(d time.Duration) metav1.ObjectMeta {
+		return metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(now.Add(-d))}
+	}
+
+	// readyAfter returns conditionAfter entries that report Ready False at
+	// once, then Ready True after d, the way tests usually configure them.
+	readyAfter := func(d time.Duration) []v1alpha1.ConditionAfter {
+		return []v1alpha1.ConditionAfter{
+			{Time: metav1.Duration{}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
+			{Time: metav1.Duration{Duration: d}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionTrue},
+		}
 	}
 
 	// get returns a Get that fills in nop, as the cache would.
@@ -87,13 +101,91 @@ func TestRequeueAtDeadline(t *testing.T) {
 			},
 			want: want{res: reconcile.Result{Requeue: true}, err: errBoom},
 		},
-		"NoRequeue": {
-			reason: "A result that doesn't ask for a requeue, like a poll, is returned as is.",
+		"PollNothingDue": {
+			reason: "A poll for a live resource with no conditions still to come is returned as is.",
 			args: args{
 				res:    reconcile.Result{RequeueAfter: time.Minute},
+				get:    get(&v1alpha1.NopResource{ObjectMeta: createdAgo(time.Second)}),
 				newObj: newNop,
 			},
 			want: want{res: reconcile.Result{RequeueAfter: time.Minute}},
+		},
+		"ConditionPending": {
+			reason: "A live resource whose conditions change before the next poll is requeued when they're due.",
+			args: args{
+				res: reconcile.Result{RequeueAfter: 10 * time.Second},
+				get: get(&v1alpha1.NopResource{
+					ObjectMeta: createdAgo(time.Second),
+					Spec:       v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: readyAfter(3 * time.Second)}},
+				}),
+				newObj: newNop,
+			},
+			want: want{res: reconcile.Result{RequeueAfter: 2 * time.Second}},
+		},
+		"ClusterConditionPending": {
+			reason: "A live ClusterNopResource whose conditions change before the next poll is requeued when they're due.",
+			args: args{
+				res: reconcile.Result{RequeueAfter: 10 * time.Second},
+				get: get(&v1alpha1.ClusterNopResource{
+					ObjectMeta: createdAgo(time.Second),
+					Spec:       v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: readyAfter(3 * time.Second)}},
+				}),
+				newObj: func() client.Object { return &v1alpha1.ClusterNopResource{} },
+			},
+			want: want{res: reconcile.Result{RequeueAfter: 2 * time.Second}},
+		},
+		"NextOfSeveral": {
+			reason: "With several conditions still to come, the resource is requeued for the earliest.",
+			args: args{
+				res: reconcile.Result{RequeueAfter: time.Minute},
+				get: get(&v1alpha1.NopResource{
+					ObjectMeta: createdAgo(5 * time.Second),
+					Spec: v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: []v1alpha1.ConditionAfter{
+						{Time: metav1.Duration{Duration: 20 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
+						{Time: metav1.Duration{}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionFalse},
+						{Time: metav1.Duration{Duration: 8 * time.Second}, ConditionType: xpv1.TypeReady, ConditionStatus: corev1.ConditionTrue},
+						{Time: metav1.Duration{Duration: 3 * time.Second}, ConditionType: xpv1.TypeSynced, ConditionStatus: corev1.ConditionTrue},
+					}}},
+				}),
+				newObj: newNop,
+			},
+			want: want{res: reconcile.Result{RequeueAfter: 3 * time.Second}},
+		},
+		"ConditionsPast": {
+			reason: "Once every condition has had its time the managed reconciler's poll is kept.",
+			args: args{
+				res: reconcile.Result{RequeueAfter: 10 * time.Second},
+				get: get(&v1alpha1.NopResource{
+					ObjectMeta: createdAgo(time.Minute),
+					Spec:       v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: readyAfter(3 * time.Second)}},
+				}),
+				newObj: newNop,
+			},
+			want: want{res: reconcile.Result{RequeueAfter: 10 * time.Second}},
+		},
+		"PollFirst": {
+			reason: "A poll that comes before the next condition change already looks again in time, so it's kept.",
+			args: args{
+				res: reconcile.Result{RequeueAfter: 10 * time.Second},
+				get: get(&v1alpha1.NopResource{
+					ObjectMeta: createdAgo(time.Second),
+					Spec:       v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: readyAfter(time.Minute)}},
+				}),
+				newObj: newNop,
+			},
+			want: want{res: reconcile.Result{RequeueAfter: 10 * time.Second}},
+		},
+		"BackoffFirst": {
+			reason: "A requeue on backoff, for example after a failed write, comes first, so it's kept.",
+			args: args{
+				res: reconcile.Result{Requeue: true},
+				get: get(&v1alpha1.NopResource{
+					ObjectMeta: createdAgo(time.Second),
+					Spec:       v1alpha1.NopSpec{ForProvider: v1alpha1.NopParameters{ConditionAfter: readyAfter(3 * time.Second)}},
+				}),
+				newObj: newNop,
+			},
+			want: want{res: reconcile.Result{Requeue: true}},
 		},
 		"GetError": {
 			reason: "An error getting the resource is returned, which requeues it on backoff.",

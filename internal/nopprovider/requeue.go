@@ -29,14 +29,20 @@ import (
 	"github.com/crossplane-contrib/provider-nop/apis/v1alpha1"
 )
 
-// RequeueAtDeadline wraps a managed reconciler so that a resource waiting out
-// spec.forProvider.deleteAfter is reconciled again when it's due. The managed
-// reconciler can't be told when that is, so it would otherwise requeue on
-// backoff and finish the deletion late.
+// RequeueAtDeadline wraps a managed reconciler so that a resource is
+// reconciled again when its pretend external resource is due to change. The
+// managed reconciler can't be told when that is, so it would otherwise only
+// look again when it next polls, or on backoff, and the change would land late.
+//
+// A resource waiting out spec.forProvider.deleteAfter is requeued when its
+// deletion is due. A live resource is requeued when its conditions next change
+// per spec.forProvider.conditionAfter, if that's sooner than the managed
+// reconciler would have looked again anyway. So a condition is set when its
+// time comes however long the poll interval is.
 func RequeueAtDeadline(r reconcile.Reconciler, c client.Reader, newObj func() client.Object) reconcile.Reconciler {
 	return reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 		res, err := r.Reconcile(ctx, req)
-		if err != nil || !res.Requeue {
+		if err != nil {
 			return res, err
 		}
 
@@ -45,26 +51,66 @@ func RequeueAtDeadline(r reconcile.Reconciler, c client.Reader, newObj func() cl
 			return res, errors.Wrap(client.IgnoreNotFound(err), "cannot get managed resource")
 		}
 
-		if !meta.WasDeleted(obj) {
-			return res, nil
-		}
-
 		nop, ok := parameters(obj)
 		if !ok {
 			return res, nil
 		}
 
-		deadline, ok := deletionDeadline(nop, obj.GetDeletionTimestamp().Time)
+		if meta.WasDeleted(obj) {
+			// After a successful Delete the managed reconciler asks for a
+			// requeue on backoff. Anything else, like a failed Delete, keeps
+			// its own result.
+			if !res.Requeue {
+				return res, nil
+			}
+
+			deadline, ok := deletionDeadline(nop, obj.GetDeletionTimestamp().Time)
+			if !ok {
+				return res, nil
+			}
+
+			if d := time.Until(deadline); d > 0 {
+				return reconcile.Result{RequeueAfter: d}, nil
+			}
+
+			return res, nil
+		}
+
+		next, ok := nextConditionChange(nop, obj.GetCreationTimestamp().Time, time.Now())
 		if !ok {
 			return res, nil
 		}
 
-		if d := time.Until(deadline); d > 0 {
-			return reconcile.Result{RequeueAfter: d}, nil
+		d := time.Until(next)
+
+		// Only ever bring a reconcile forward. A requeue on backoff, or a poll
+		// that comes first, already looks again in time.
+		if res.Requeue || (res.RequeueAfter > 0 && res.RequeueAfter <= d) {
+			return res, nil
 		}
 
-		return res, nil
+		return reconcile.Result{RequeueAfter: d}, nil
 	})
+}
+
+// nextConditionChange returns when a live resource's conditions next change
+// per conditionAfter, or false if none are still to come. Observe measures
+// the same times from the creation timestamp, so the two agree.
+func nextConditionChange(nop v1alpha1.NopParameters, created, now time.Time) (time.Time, bool) {
+	var next time.Time
+
+	for _, ca := range nop.ConditionAfter {
+		at := created.Add(ca.Time.Duration)
+		if !at.After(now) {
+			continue
+		}
+
+		if next.IsZero() || at.Before(next) {
+			next = at
+		}
+	}
+
+	return next, !next.IsZero()
 }
 
 // deletionDeadline returns when a deleted resource's pretend external resource
