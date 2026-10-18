@@ -59,7 +59,7 @@ func main() {
 		pollInterval            = app.Flag("poll", "Poll interval controls how often an individual resource should be checked for drift.").Default("10s").Duration()
 		pollStateMetricInterval = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
 		leaderElection          = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").Envar("LEADER_ELECTION").Bool()
-		maxReconcileRate        = app.Flag("max-reconcile-rate", "The maximum number of concurrent reconciliation operations.").Default("1").Int()
+		maxReconcileRate        = app.Flag("max-reconcile-rate", "The maximum number of concurrent reconciles, and of reconciles per second across all resources.").Default("100").Int()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
