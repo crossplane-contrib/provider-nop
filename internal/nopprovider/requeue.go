@@ -76,12 +76,13 @@ func RequeueAtDeadline(r reconcile.Reconciler, c client.Reader, newObj func() cl
 			return res, nil
 		}
 
-		next, ok := nextConditionChange(nop, obj.GetCreationTimestamp().Time, time.Now())
+		now := time.Now()
+		next, ok := nextConditionChange(nop, obj.GetCreationTimestamp().Time, now)
 		if !ok {
 			return res, nil
 		}
 
-		d := time.Until(next)
+		d := next.Sub(now)
 
 		// Only ever bring a reconcile forward. A requeue on backoff, or a poll
 		// that comes first, already looks again in time.
